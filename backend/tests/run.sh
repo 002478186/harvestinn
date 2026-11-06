@@ -16,4 +16,8 @@ fail=0
 for t in tests/test_*.sql; do
   if "${PSQL[@]}" -f "$t" >/dev/null 2>"$DIR/err"; then echo "PASS $t"; else echo "FAIL $t"; cat "$DIR/err"; fail=1; fi
 done
+export PSQL_ARGS="-h $DIR -p $PORT -U postgres"
+for t in tests/test_*.sh; do
+  if "$t" 2>"$DIR/err"; then echo "PASS $t"; else echo "FAIL $t"; cat "$DIR/err"; fail=1; fi
+done
 exit $fail

@@ -40,7 +40,9 @@ func _testing() -> bool:
 func _periodic() -> void:
 	if not configured(): return
 	if not online: await connect_now()
-	elif Game.model.s["flags"].get("cloud_dirty", false): await sync()
+	else:
+		await process_outbox()
+		if Game.model.s["flags"].get("cloud_dirty", false): await sync()
 
 # ------------------------------------------------------------------ HTTP
 
@@ -83,7 +85,10 @@ func connect_now() -> bool:
 	if not ok:
 		ok = await _sign_in_guest()
 	_set_online(ok)
-	if ok: await sync()
+	if ok:
+		await sync()
+		await process_outbox()
+		await claim_helps()
 	return ok
 
 func _sign_in_guest() -> bool:
@@ -172,3 +177,45 @@ func adopt(server: Dictionary) -> void:
 ## Keep this device's progress: overwrite the cloud from the server's latest revision.
 func keep_local(server: Dictionary) -> void:
 	await _push(int(server["revision"]))
+
+# ------------------------------------------------------------------ trading
+
+## Sends pending deposits/collects. Same request id on retry = no duplicates.
+func process_outbox() -> void:
+	var m: GameModel = Game.model
+	for op in m.s["outbox"].duplicate():
+		var r: Dictionary
+		if op["kind"] == "deposit":
+			r = await call_rpc("deposit", {"p_request_id": op["id"], "p_items": op["items"], "p_coins": op["coins"]})
+		else:
+			r = await call_rpc("collect", {"p_request_id": op["id"]})
+		if r["code"] == 0:
+			return                                   # offline: keep for later
+		m.finish_op(op["id"], r["data"] if r["code"] == 200 and r["data"] is Dictionary else {"error": err(r)})
+	Game.save()
+
+## Server error code from a PostgREST error body ("message" holds the raised text).
+static func err(r: Dictionary) -> String:
+	if r["code"] == 0: return "offline"
+	if r["data"] is Dictionary:
+		return str(r["data"].get("error", r["data"].get("message", "server_error")))
+	return "server_error"
+
+## Deposit (if needed) then run `fn`; returns "" or an error code.
+func trade_call(fn: String, args: Dictionary) -> String:
+	await process_outbox()
+	var r := await call_rpc(fn, args)
+	if r["code"] == 200 and not (r["data"] is Dictionary and r["data"].has("error")):
+		return ""
+	return err(r)
+
+func collect_all() -> void:
+	Game.model.queue_collect()
+	await process_outbox()
+
+func claim_helps() -> void:
+	var r := await call_rpc("claim_helps")
+	if r["code"] == 200 and r["data"] is Array:
+		for h in r["data"]:
+			Game.model.apply_help(int(h["plot"]), Game.now())
+			Game.event.emit("helped", {"name": h["helper_name"]})

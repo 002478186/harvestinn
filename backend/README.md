@@ -41,9 +41,33 @@ This starts a throwaway Postgres, adds a minimal stub of Supabase's `auth`
 schema and roles (`tests/supabase_stub.sql`), applies the migrations, and runs
 `tests/test_*.sql` (assertion blocks that raise on failure). CI runs the same script.
 
+## End-to-end test (real game client ↔ local stack)
+```bash
+brew install postgresql@16 postgrest
+python3 tools/dev_backend.py --e2e     # Postgres + PostgREST + auth stand-in, then tests/e2e_runner.gd
+python3 tools/dev_backend.py           # or keep it running and point config/backend.json at http://127.0.0.1:54321
+```
+Two guest players list, buy, double-buy (refused), collect, retry a lost
+deposit (counted once), hit a cloud-save conflict, add friends and visit farms.
+
 ## Functions (RPC)
 | Function | Purpose |
 |---|---|
 | `set_display_name(p_name)` | Rename with moderation |
 | `save_game(p_data, p_base_revision)` / `load_game()` | Cloud save with optimistic concurrency (conflict → returns server copy) |
-| *(trading, friends, market news: see the trading migration)* | |
+| `deposit(p_request_id, p_items, p_coins)` | Device → escrow/wallet, idempotent, daily caps |
+| `collect(p_request_id)` | Escrow/wallet → device, idempotent (a retry returns the same payload) |
+| `create_listing`, `cancel_listing`, `buy_listing`, `browse_listings` | Marketplace (price bounds, 4 slots, 48 h expiry, 5% fee, row-locked buy) |
+| `price_history(item)`, `market_news()` | Charts and trending items |
+| `add_friend(code)`, `list_friends`, `remove_friend`, `visit_farm`, `help_friend`, `claim_helps` | Friends, read-only visits, daily help |
+| `send_offer`, `respond_offer`, `cancel_offer` | Direct trades between friends (offered goods are held until answered) |
+| `report_player(id, reason)` | Moderation queue (`public.reports`, read via the dashboard) |
+| `my_trading()` | Wallet, escrow, my listings and pending offers in one call |
+
+Every trade-related call is written to `public.trade_log`.
+
+### Known trust limit
+The farm is simulated on the device so it works offline. The server therefore
+can't prove that deposited goods were really farmed. Daily deposit caps (100
+of each item; 2,000 + 1,000×level coins) limit what a modified client could
+inject. Everything *after* a deposit is fully server-authoritative.

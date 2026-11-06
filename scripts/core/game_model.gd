@@ -680,3 +680,44 @@ func buy_cosmetic(id: String, x := 0, y := 0) -> String:
 	stat("purchases")
 	event.emit("purchase", {"id": id})
 	return ""
+
+# ------------------------------------------------------------ trading outbox (device side)
+# Items leave the farm BEFORE the server call and wait in s["outbox"] with a request id.
+# Net retries the same id until the server answers; refused deposits are refunded.
+
+func queue_deposit(items: Dictionary, coins: int) -> String:
+	if not has_items(items): return "missing_items"
+	if int(s["coins"]) < coins: return "no_coins"
+	remove_items(items)
+	if coins > 0: add_coins(-coins)
+	var op := {"id": TradeRules.uuid(), "kind": "deposit", "items": items, "coins": coins}
+	s["outbox"].append(op)
+	event.emit("outbox", op)
+	return ""
+
+func queue_collect() -> void:
+	if s["outbox"].any(func(o): return o["kind"] == "collect"): return
+	s["outbox"].append({"id": TradeRules.uuid(), "kind": "collect"})
+
+## Applies the server's answer for an outbox op. `result` is the RPC data, or {"error": code}.
+func finish_op(op_id: String, result: Dictionary) -> void:
+	var i := -1
+	for k in s["outbox"].size():
+		if s["outbox"][k]["id"] == op_id: i = k
+	if i < 0: return
+	var op: Dictionary = s["outbox"][i]
+	s["outbox"].remove_at(i)
+	if op["kind"] == "deposit" and not result.get("ok", false):
+		add_items(op["items"], true)              # refused: give everything back
+		if int(op["coins"]) > 0: add_coins(int(op["coins"]))
+	elif op["kind"] == "collect" and result.get("ok", false):
+		add_items(result.get("items", {}), true)
+		if int(result.get("coins", 0)) > 0: add_coins(int(result["coins"]))
+		stat("trades")
+	event.emit("outbox", {})
+
+## A friend watered a crop: it finishes 5 minutes sooner.
+func apply_help(plot: int, now: float) -> void:
+	if plot >= 0 and plot < s["plots"].size() and s["plots"][plot]["crop"] != "":
+		s["plots"][plot]["ready_at"] = maxf(now, float(s["plots"][plot]["ready_at"]) - 300.0)
+		event.emit("plot", {"index": plot})

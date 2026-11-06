@@ -41,6 +41,8 @@ func _ready() -> void:
 func _on_event(name: String, d: Dictionary) -> void:
 	if name == "harvest":
 		farm.harvest_feedback(d["index"], d["crop"], d["qty"])
+	elif name == "helped":
+		hud.toast(tr("%s watered one of your crops!") % d["name"])
 	elif name == "level_up":
 		Screens.talk(self, Dialogue.for_level_up(d["level"], d["unlocks"]))
 

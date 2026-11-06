@@ -36,7 +36,8 @@ func _ready() -> void:
 
 func set_model(m: GameModel) -> void:
 	model = m
-	model.event.connect(_relay)
+	if not model.event.is_connected(_relay):
+		model.event.connect(_relay)
 	event.emit("reset", {})
 
 func _relay(n: String, d: Dictionary) -> void:

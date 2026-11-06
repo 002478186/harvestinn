@@ -10,6 +10,15 @@ const ERRORS := {
 	"plot_busy": "Something is already growing here", "not_ready": "Not ready yet",
 	"missing_items": "You don't have the ingredients", "queue_full": "All slots are busy",
 	"offline": "Connect to the internet to trade", "not_owned": "Build it first in the Shop",
+	"sell_cap": "The stall can't take more of that today", "max_level": "Already at the maximum",
+	"price_out_of_range": "That price is outside the allowed range", "listing_slots_full": "All listing slots are in use",
+	"not_enough_items": "Not enough items in your trade storage", "not_enough_coins": "Not enough coins in your trade wallet",
+	"already_sold": "Someone was quicker: that listing just sold", "expired": "That listing has expired",
+	"own_listing": "That's your own listing", "deposit_cap": "Daily trading limit reached for that item",
+	"rate_limited": "Slow down a little and try again", "unknown_code": "No farmer has that code",
+	"own_code": "That's your own code", "not_friends": "You need to be friends first", "already_helped": "You already helped this friend today",
+	"help_limit": "You've helped 5 friends today: come back tomorrow", "not_pending": "That offer was already answered",
+	"empty_offer": "Add something to give", "banned": "This account can't trade", "server_error": "The server had a hiccup, try again",
 }
 
 static func open(main, screen: String) -> void:
@@ -19,6 +28,7 @@ static func open(main, screen: String) -> void:
 		"shop": shop(main)
 		"market": market(main)
 		"orders": deliveries(main)
+		"friends": TradeScreens.friends(main)
 		"inn": main.show_farm() if main.inn.visible else main.show_inn()
 		_: main.hud.toast(tr_("Coming soon"))
 
@@ -425,9 +435,8 @@ static func _sell(main, id: String, qty: int, tab: String) -> void:
 	main.hud.fly(UI.icon("coin"), main.hud.root.get_viewport_rect().size / 2, "coins")
 	market(main, tab)
 
-## Filled in by the online trading milestone.
-static func online_market(_main, body: VBoxContainer) -> void:
-	body.add_child(UI.label(tr_("Coming soon"), 26))
+static func online_market(main, body: VBoxContainer) -> void:
+	TradeScreens.market(main, body)
 
 static func deliveries(main) -> void:
 	var m: GameModel = Game.model
