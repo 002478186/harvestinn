@@ -98,3 +98,23 @@ static func barn(main) -> void:
 		if ids.is_empty():
 			body.add_child(UI.label(tr_("Empty"), 24, UI.WOOD_DARK))
 		body.add_child(g)
+
+# ------------------------------------------------------------------ welcome back
+
+static func welcome_back(main, w: Dictionary) -> void:
+	main.hud.queue_popup(func():
+		var v: VBoxContainer = main.hud.popup(tr_("Welcome back!"), UI.tex("res://assets/art/characters/innkeeper.svg"))
+		v.add_child(UI.label(tr_("You were away %s. While you were gone:") % UI.fmt_time(w["away"]), 28))
+		var lines := {
+			"crops": "%d crops ready to harvest", "jobs": "%d workshop goods finished",
+			"animals": "%d animals have goods for you", "guests": "%d guests are waiting at the inn",
+			"room_coins": "%d coins earned by guest rooms",
+		}
+		var any := false
+		for k in lines:
+			if int(w.get(k, 0)) > 0:
+				v.add_child(UI.label("• " + tr_(lines[k]) % int(w[k]), 26, UI.MEADOW))
+				any = true
+		if not any:
+			v.add_child(UI.label(tr_("• The farm rested peacefully"), 26))
+		v.add_child(UI.button(tr_("Let's go!"), func(): main.hud.close_popup(v), UI.MEADOW)))

@@ -29,6 +29,7 @@ static func new_game(now: float) -> GameModel:
 	})
 	for i in cols * rows:
 		m.s["plots"].append(_empty_plot())
+	SaveCodec.fill_defaults(m.s)
 	return m
 
 static func _empty_plot() -> Dictionary:
@@ -203,3 +204,14 @@ func move_object(id: String, x: int, y: int, size: int, occupied: Array) -> bool
 ## True when a building has finished work waiting to be collected (shows a bubble).
 func building_has_ready(_id: String, _now: float) -> bool:
 	return false
+
+# ------------------------------------------------------------ offline progress
+
+## What finished while the app was closed. Timers are absolute timestamps, so the
+## work itself already happened; this only counts it for the "Welcome back" card.
+func offline_summary(since: float, now: float) -> Dictionary:
+	var out := {"away": now - since, "crops": 0}
+	for p in s["plots"]:
+		if p["crop"] != "" and float(p["ready_at"]) > since and float(p["ready_at"]) <= now:
+			out["crops"] += 1
+	return out

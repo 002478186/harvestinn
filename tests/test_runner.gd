@@ -7,6 +7,7 @@ extends SceneTree
 
 func _initialize() -> void:
 	await process_frame  # let autoloads (Game, Sfx) enter the tree
+	root.get_node("Game").save_path = "user://test_save.json"  # never touch the player's save
 	var passed := 0
 	var failed := 0
 	var dir := DirAccess.open("res://tests")

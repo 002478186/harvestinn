@@ -15,6 +15,9 @@ func _ready() -> void:
 	farm.fly.connect(hud.fly)
 	hud.nav.connect(_on_nav)
 	Game.event.connect(_on_event)
+	if float(Game.welcome.get("away", 0.0)) > 60.0:
+		Screens.welcome_back(self, Game.welcome)
+		Game.welcome = {}
 
 func _on_event(name: String, d: Dictionary) -> void:
 	if name == "harvest":
