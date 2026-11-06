@@ -18,7 +18,13 @@ func _ready() -> void:
 	farm.fly.connect(hud.fly)
 	hud.nav.connect(_on_nav)
 	Game.event.connect(_on_event)
-	if float(Game.welcome.get("away", 0.0)) > 60.0:
+	for a in OS.get_cmdline_user_args():   # dev aid for screenshots: -- --screen=shop / --screen=b:mill
+		if a.begins_with("--screen="):
+			var v := a.substr(9)
+			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
+			else: Screens.open(self, v)
+	var w := Game.welcome
+	if float(w.get("away", 0.0)) > 3600.0 or ["crops", "jobs", "animals", "guests", "room_coins"].any(func(k): return int(w.get(k, 0)) > 0) and float(w.get("away", 0.0)) > 60.0:
 		Screens.welcome_back(self, Game.welcome)
 		Game.welcome = {}
 

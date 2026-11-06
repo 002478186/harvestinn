@@ -202,19 +202,20 @@ func move_object(id: String, x: int, y: int, size: int, occupied: Array) -> bool
 	event.emit("building", {"id": id})
 	return true
 
-## True when a building has finished work waiting to be collected (shows a bubble).
-func building_has_ready(_id: String, _now: float) -> bool:
-	return false
 
 # ------------------------------------------------------------ offline progress
 
 ## What finished while the app was closed. Timers are absolute timestamps, so the
 ## work itself already happened; this only counts it for the "Welcome back" card.
 func offline_summary(since: float, now: float) -> Dictionary:
-	var out := {"away": now - since, "crops": 0}
+	var out := {"away": now - since, "crops": 0, "jobs": 0}
 	for p in s["plots"]:
 		if p["crop"] != "" and float(p["ready_at"]) > since and float(p["ready_at"]) <= now:
 			out["crops"] += 1
+	for b in s["buildings"]:
+		for j in s["buildings"][b]["queue"]:
+			if float(j["end"]) > since and float(j["end"]) <= now:
+				out["jobs"] += 1
 	return out
 
 # ------------------------------------------------------------ tutorial
@@ -268,3 +269,96 @@ func set_player_name(n: String) -> String:
 	s["name"] = n
 	event.emit("name", {"name": n})
 	return ""
+
+# ------------------------------------------------------------ buildings + workshops
+
+## The inn kitchen exists from the start; other buildings are bought in the Shop.
+func owns_building(id: String) -> bool:
+	if id == "kitchen" and not s["buildings"].has("kitchen"):
+		s["buildings"]["kitchen"] = {"level": 0, "queue": []}
+	return s["buildings"].has(id)
+
+func building_level(id: String) -> int:
+	return int(s["buildings"][id]["level"]) if owns_building(id) else -1
+
+func build(id: String) -> String:
+	var b: Dictionary = GameData.buildings().get(id, {})
+	if b.is_empty() or b.get("internal", false) or id == "inn": return "unknown"
+	if owns_building(id): return "owned"
+	if not is_unlocked(b["unlock_level"]): return "locked"
+	if not spend(int(b["levels"][0]["cost"])): return "no_coins"
+	s["buildings"][id] = {"level": 0, "queue": []}
+	if b["kind"] == "housing": s["animals"][id] = []
+	stat("built")
+	event.emit("building", {"id": id})
+	return ""
+
+func upgrade_building(id: String) -> String:
+	if not owns_building(id): return "not_owned"
+	var levels: Array = GameData.buildings()[id]["levels"]
+	var next := building_level(id) + 1
+	if next >= levels.size(): return "max_level"
+	if not spend(int(levels[next]["cost"])): return "no_coins"
+	s["buildings"][id]["level"] = next
+	event.emit("building", {"id": id})
+	return ""
+
+func slots(id: String) -> int:
+	return int(GameData.buildings()[id]["levels"][building_level(id)].get("slots", 0))
+
+func queue_recipe(bid: String, rid: String, now: float) -> String:
+	var r: Dictionary = GameData.recipes().get(rid, {})
+	if r.is_empty() or r["building"] != bid: return "unknown"
+	if not owns_building(bid): return "not_owned"
+	if not is_unlocked(r["unlock_level"]): return "locked"
+	var q: Array = s["buildings"][bid]["queue"]
+	if q.size() >= slots(bid): return "queue_full"
+	if not remove_items(r["inputs"]): return "missing_items"
+	var start := maxf(now, float(q.back()["end"])) if not q.is_empty() else now
+	q.append({"recipe": rid, "start": start, "end": start + float(r["seconds"])})
+	event.emit("job", {"building": bid})
+	return ""
+
+## Collects every finished job at the front of the queue that fits in storage.
+func collect_building(bid: String, now: float) -> String:
+	if not owns_building(bid): return "not_owned"
+	var q: Array = s["buildings"][bid]["queue"]
+	var got := 0
+	while not q.is_empty() and float(q[0]["end"]) <= now:
+		var r: Dictionary = GameData.recipes()[q[0]["recipe"]]
+		if not add_items(r["outputs"]):
+			return "barn_full" if got == 0 else ""
+		q.pop_front()
+		got += 1
+		stat("cooked" if bid == "kitchen" else "crafted")
+		add_xp(int(r["xp"]))
+		event.emit("collect", {"building": bid, "items": r["outputs"]})
+	return "" if got > 0 else "not_ready"
+
+func building_has_ready(id: String, now: float) -> bool:
+	if id == "inn": return owns_building("kitchen") and building_has_ready("kitchen", now)
+	if s["animals"].has(id): return animals_ready(id, now) > 0
+	if not s["buildings"].has(id): return false
+	var q: Array = s["buildings"][id]["queue"]
+	return not q.is_empty() and float(q[0]["end"]) <= now
+
+## Pays gems to finish the first unfinished job; later jobs move up by the same amount.
+func speed_up_job(bid: String, now: float) -> String:
+	var q: Array = s["buildings"][bid]["queue"]
+	for j in q:
+		var rem := float(j["end"]) - now
+		if rem <= 0.0: continue
+		var cost := speedup_cost(rem)
+		if s["gems"] < cost: return "no_gems"
+		add_gems(-cost)
+		for k in q:
+			if float(k["end"]) > now:
+				k["start"] = float(k["start"]) - rem
+				k["end"] = float(k["end"]) - rem
+		event.emit("job", {"building": bid})
+		return ""
+	return "not_needed"
+
+## Placeholder until livestock (milestone 11).
+func animals_ready(_housing: String, _now: float) -> int:
+	return 0

@@ -3,6 +3,7 @@
 class_name Screens
 extends RefCounted
 
+const LOCK := "<lock>"
 const ERRORS := {
 	"no_coins": "Not enough coins", "no_gems": "Not enough gems", "locked": "Unlocks at a higher level",
 	"silo_full": "Silo is full: upgrade it in the Shop", "barn_full": "Barn is full: upgrade it in the Shop",
@@ -15,10 +16,15 @@ static func open(main, screen: String) -> void:
 	match screen:
 		"barn": barn(main)
 		"settings": settings(main)
+		"shop": shop(main)
+		"inn": workshop(main, "kitchen")
 		_: main.hud.toast(tr_("Coming soon"))
 
 static func open_building(main, id: String) -> void:
-	main.hud.toast(GameData.buildings().get(id, {}).get("name", id))
+	var b: Dictionary = GameData.buildings().get(id, {})
+	if id == "inn": open(main, "inn")
+	elif b.get("kind", "") == "workshop": workshop(main, id)
+	else: main.hud.toast(tr_(b.get("name", id)))
 
 static func tr_(s: String) -> String:
 	return TranslationServer.translate(s)
@@ -38,7 +44,7 @@ static func row(tex: Texture2D, title: String, sub: String, btn_text: String, on
 		v.add_child(UI.label(sub, 22, UI.WOOD_DARK, 600))
 	h.add_child(v)
 	if btn_text != "":
-		var b := UI.button(btn_text, on_press, color)
+		var b := UI.button("" if btn_text == LOCK else btn_text, on_press, color, UI.icon("lock") if btn_text == LOCK else null)
 		b.disabled = not enabled
 		b.custom_minimum_size.x = 150
 		h.add_child(b)
@@ -54,7 +60,7 @@ static func seed_picker(main, plot: int) -> void:
 		var ok := m.is_unlocked(c["unlock_level"])
 		var sub := ("%s · %d coins · sells %d" % [UI.fmt_time(c["grow_seconds"]), int(c["seed_cost"]), GameData.item_price(cid)]) if ok \
 			else tr_("Unlocks at level %d") % int(c["unlock_level"])
-		body.add_child(row(UI.item_tex(cid), tr_(GameData.item_name(cid)), sub, tr_("Plant") if ok else "🔒", func():
+		body.add_child(row(UI.item_tex(cid), tr_(GameData.item_name(cid)), sub, tr_("Plant") if ok else LOCK, func():
 			var err := m.plant(plot, cid, Game.now())
 			main.hud.close_sheet()
 			if err != "":
@@ -194,11 +200,12 @@ static func avatar_editor(main) -> void:
 			var c: Dictionary = GameData.cosmetics()[cid]
 			if c["slot"] != slot: continue
 			var owned := m.owns(cid)
-			var b := UI.button(tr_(c["name"]) if owned else "🔒 " + tr_(c["name"]), func():
+			var b := UI.button(tr_(c["name"]), func():
 				if m.set_avatar(slot, cid) != "": main.say_error("Buy it in the Shop first")
 				else: redo.call(), UI.MEADOW if a[slot] == cid else (UI.WOOD_DARK if owned else Color("#B8A89A")))
 			b.add_theme_font_size_override("font_size", 22)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not owned: b.icon = UI.icon("lock")
 			g.add_child(b)
 		body.add_child(g)
 
@@ -227,3 +234,115 @@ static func cast(main) -> void:
 		v.add_child(UI.label(tr_(c["personality"]), 20, UI.WOOD_DARK))
 		h.add_child(v)
 		body.add_child(p)
+
+# ------------------------------------------------------------------ workshops
+
+static func workshop(main, bid: String) -> void:
+	var m: GameModel = Game.model
+	var b: Dictionary = GameData.buildings()[bid]
+	var body: VBoxContainer = main.hud.sheet("%s · %s %d" % [tr_(b["name"]), tr_("Lv"), m.building_level(bid) + 1], 0.85)
+	var redo := func(): workshop(main, bid)
+	var levels: Array = b["levels"]
+	var next := m.building_level(bid) + 1
+	if next < levels.size():
+		body.add_child(UI.button(tr_("Upgrade to %d slots · %d coins") % [int(levels[next]["slots"]), int(levels[next]["cost"])], func():
+			var err := m.upgrade_building(bid)
+			if err != "": main.say_error(err)
+			else: Sfx.play("build"); redo.call(), UI.WOOD_DARK, UI.icon("coin")))
+	var qbox := VBoxContainer.new()
+	body.add_child(qbox)
+	var fill := func():
+		for c in qbox.get_children(): c.queue_free()
+		_queue_rows(main, qbox, bid, redo)
+	fill.call()
+	var t := Timer.new()
+	t.wait_time = 1.0
+	t.autostart = true
+	t.timeout.connect(fill)
+	qbox.add_child.call_deferred(t)
+	qbox.set_meta("timer", t)
+	body.add_child(UI.label(tr_("Recipes"), 32, UI.RED, 600))
+	for rid in GameData.recipes_for(bid):
+		var r: Dictionary = GameData.recipes()[rid]
+		var out_id: String = r["outputs"].keys()[0]
+		var ok := m.is_unlocked(r["unlock_level"])
+		var parts := []
+		for i in r["inputs"]:
+			parts.append("%s %d/%d" % [tr_(GameData.item_name(i)), m.count(i), int(r["inputs"][i])])
+		var sub := ("%s · %s" % [", ".join(parts), UI.fmt_time(r["seconds"])]) if ok else tr_("Unlocks at level %d") % int(r["unlock_level"])
+		body.add_child(row(UI.item_tex(out_id), "%s ×%d · %d" % [tr_(GameData.item_name(out_id)), int(r["outputs"][out_id]), GameData.item_price(out_id)], sub,
+			tr_("Make") if ok else LOCK, func():
+				var err := m.queue_recipe(bid, rid, Game.now())
+				if err != "": main.say_error(err)
+				else: Sfx.play("craft"); redo.call(), ok and m.has_items(r["inputs"])))
+
+static func _queue_rows(main, box: VBoxContainer, bid: String, redo: Callable) -> void:
+	var m: GameModel = Game.model
+	var now := Game.now()
+	var q: Array = m.s["buildings"][bid]["queue"]
+	box.add_child(UI.label(tr_("Working: %d / %d slots") % [q.size(), m.slots(bid)], 26, UI.WOOD_DARK, 600))
+	var first_running := true
+	for j in q:
+		var r: Dictionary = GameData.recipes()[j["recipe"]]
+		var out_id: String = r["outputs"].keys()[0]
+		var done := float(j["end"]) <= now
+		var h := HBoxContainer.new()
+		h.add_child(UI.icon_rect(UI.item_tex(out_id), 64))
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 28)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var running := float(j["start"]) <= now
+		bar.value = 100.0 if done else (100.0 * (now - float(j["start"])) / (float(j["end"]) - float(j["start"])) if running else 0.0)
+		h.add_child(bar)
+		if done:
+			h.add_child(UI.button(tr_("Collect"), func():
+				var err := m.collect_building(bid, Game.now())
+				if err != "": main.say_error(err)
+				else:
+					Sfx.play("collect")
+					main.hud.fly(UI.item_tex(out_id), main.hud.root.get_viewport_rect().size / 2, "barn")
+					redo.call(), UI.MEADOW))
+		elif first_running:
+			first_running = false
+			h.add_child(UI.label(UI.fmt_time(float(j["end"]) - now), 24))
+			h.add_child(UI.button("%d" % GameModel.speedup_cost(float(j["end"]) - now), func():
+				var err := m.speed_up_job(bid, Game.now())
+				if err != "": main.say_error(err)
+				else: redo.call(), UI.SKY, UI.icon("gem")))
+		else:
+			h.add_child(UI.label(tr_("Waiting"), 24, UI.WOOD_DARK))
+		box.add_child(h)
+
+# ------------------------------------------------------------------ shop
+
+static func shop(main, tab := "buildings") -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Shop"), 0.85)
+	var tabs := HBoxContainer.new()
+	for t in [["buildings", "Buildings"], ["farm", "Farm"], ["style", "Style"]]:
+		var b := UI.button(tr_(t[1]), func(): shop(main, t[0]), UI.MEADOW if t[0] == tab else UI.WOOD_DARK)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(b)
+	body.add_child(tabs)
+	if tab == "buildings":
+		for bid in GameData.buildings():
+			var b: Dictionary = GameData.buildings()[bid]
+			if bid == "inn" or b.get("internal", false): continue
+			var owned := m.owns_building(bid)
+			var ok := m.is_unlocked(b["unlock_level"]) and not owned
+			var sub := tr_("Owned") if owned else (("%d coins" % int(b["levels"][0]["cost"])) if m.is_unlocked(b["unlock_level"]) else tr_("Unlocks at level %d") % int(b["unlock_level"]))
+			body.add_child(row(UI.tex("res://assets/art/buildings/%s.svg" % bid), tr_(b["name"]), sub, tr_("Build") if not owned else tr_("Owned"), func():
+				var err := m.build(bid)
+				if err != "": main.say_error(err)
+				else:
+					Sfx.play("build")
+					main.hud.close_sheet()
+					main.hud.toast(tr_("%s built! Long-press to move it.") % tr_(b["name"])), ok, UI.MEADOW))
+	else:
+		shop_extra(main, body, tab)
+
+## Farm upgrades + cosmetics tabs (filled in by the market/shop milestone).
+static func shop_extra(_main, body: VBoxContainer, _tab: String) -> void:
+	body.add_child(UI.label(tr_("Coming soon"), 26))

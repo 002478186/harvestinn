@@ -17,8 +17,18 @@ func test_plant_and_harvest_through_ui() -> bool:
 	main._on_plot(0)
 	eq(game.model.s["plots"][0]["crop"], "", "harvested")
 	eq(game.model.count("wheat"), 6, "wheat in barn")
-	main._on_nav("barn")
-	truthy(main.hud.sheet_open(), "barn opens")
+	for screen in ["barn", "shop", "settings", "inn"]:
+		main._on_nav(screen)
+		truthy(main.hud.sheet_open(), screen + " opens")
+	game.model.s["coins"] = 1000
+	game.model.s["level"] = 4
+	eq(game.model.build("mill"), "", "build mill")
+	main._on_building("mill")
+	truthy(main.hud.sheet_open(), "mill sheet opens")
+	Screens.avatar_editor(main)
+	Screens.cast(main)
+	truthy(main.hud.sheet_open(), "cast opens")
+	main.hud.close_sheet()
 	main.queue_free()
 	await tree.process_frame
 	return true
