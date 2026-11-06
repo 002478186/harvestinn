@@ -36,9 +36,13 @@ func test_3d_core_loop_through_the_game_scene() -> bool:
 	var coins: int = game.model.s["coins"]
 	main.serve_at_table(0)
 	truthy(game.model.s["coins"] > coins, "served the terrace guest in the world")
-	main.show_inn()
-	truthy(main.inn.visible, "inn view opens")
-	main.show_farm()
+	main.world.interiors.enter("inn", Vector3.ZERO)
+	await tree.process_frame
+	truthy(main.world.interiors.get_child_count() > 20, "3D inn interior built")
+	main.world.interiors.enter("mill", Vector3.ZERO) if game.model.owns_building("mill") else null
+	main.world.interiors.enter("storehouse", Vector3.ZERO)
+	truthy(main.world._interact_in.size() >= 2, "storehouse interactions")
+	main.world.interiors.leave()
 	game.model.s["level"] = 10
 	game.model.s["coins"] = 5000
 	main.build_here("coop")

@@ -27,6 +27,11 @@ func _ready() -> void:
 	_build_top(safe)
 	_build_bottom(safe)
 	_build_side(safe)
+	clock = UI.label("", 24, Color.WHITE, 700, false)
+	clock.add_theme_color_override("font_outline_color", UI.INK)
+	clock.add_theme_constant_override("outline_size", 8)
+	clock.position = Vector2(24, safe.x + 70)
+	root.add_child(clock)
 	_toast = UI.label("", 30, Color.WHITE)
 	_toast.add_theme_color_override("font_outline_color", UI.INK)
 	_toast.add_theme_constant_override("outline_size", 10)
@@ -85,6 +90,7 @@ func _pill(parent: Control, ic: Texture2D, target: String) -> Array:
 	return [l, h]
 
 var joystick: Control
+var clock: Label
 var action_btn: Button
 
 ## Joystick (left), context action (bottom right). The farm is walked, not menu-driven.

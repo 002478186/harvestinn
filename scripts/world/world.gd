@@ -36,12 +36,17 @@ const CROP_SCALE := 0.85
 
 var main: Node
 var player: CharacterBody3D
+var day := preload("res://scripts/world/day_night.gd").new()
 var _plots: Array[Node3D] = []
 var _dynamic: Node3D                     # rebuilt when land/buildings change
 var _interact: Array[Dictionary] = []     # {pos, radius, label(): String, act(), icon}
+var _interact_in: Array[Dictionary] = []  # same, for the interior you're in
+var interiors := preload("res://scripts/world/interiors.gd").new()
+const STOREHOUSE := Vector3(-17, 0, 12)
 var _current: Dictionary = {}
 var _npcs := {}
 var _clock := 0.0
+var _inside_clock := 0.0
 
 func _ready() -> void:
 	_environment()
@@ -49,6 +54,8 @@ func _ready() -> void:
 	_scenery()
 	_dynamic = Node3D.new()
 	add_child(_dynamic)
+	interiors.w = self
+	add_child(interiors)
 	for id in NPCS:
 		var n: Array = NPCS[id]
 		var c := Character3D.make(n[0], n[1])
@@ -70,6 +77,8 @@ func _ready() -> void:
 func _on_event(name: String, d: Dictionary) -> void:
 	if name in ["reset", "land", "building", "animal", "guest", "served", "rep_tier"]:
 		rebuild.call_deferred()
+	if interiors.kind != "" and name in ["job", "collect", "guest", "served", "room", "inventory", "reputation", "purchase", "building", "storage", "coins"]:
+		interiors.build.call_deferred()
 	elif name in ["plot", "harvest"]:
 		_refresh_plot(int(d.get("index", -1)))
 
@@ -109,6 +118,58 @@ func _environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	day.sun = sun
+	day.env = env
+	day.sky = sky
+	add_child(day)
+	_night_sky()
+
+## Stars (a dome of tiny unshaded dots) and fireflies drifting over the meadows: night only.
+func _night_sky() -> void:
+	var stars := CPUParticles3D.new()
+	stars.amount = 400
+	stars.lifetime = 9999.0
+	stars.preprocess = 1.0
+	stars.explosiveness = 1.0
+	stars.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE_SURFACE
+	stars.emission_sphere_radius = 160.0
+	stars.gravity = Vector3.ZERO
+	stars.initial_velocity_max = 0.0
+	var sm := SphereMesh.new()
+	sm.radius = 0.35
+	sm.height = 0.7
+	stars.mesh = sm
+	var smat := StandardMaterial3D.new()
+	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	smat.albedo_color = Color("#FFF8E0")
+	stars.material_override = smat
+	stars.position.y = 20.0
+	stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(stars)
+	day.night_fx.append(stars)
+	var flies := CPUParticles3D.new()
+	flies.amount = 70
+	flies.lifetime = 6.0
+	flies.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	flies.emission_box_extents = Vector3(38, 1.2, 38)
+	flies.position = Vector3(0, 1.4, 5)
+	flies.gravity = Vector3(0, 0.05, 0)
+	flies.initial_velocity_min = 0.2
+	flies.initial_velocity_max = 0.6
+	flies.spread = 180.0
+	var fm := SphereMesh.new()
+	fm.radius = 0.05
+	fm.height = 0.1
+	flies.mesh = fm
+	var fmat := StandardMaterial3D.new()
+	fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fmat.albedo_color = Color("#E8FF8A")
+	fmat.emission_enabled = true
+	fmat.emission = Color("#E8FF8A")
+	fmat.emission_energy_multiplier = 3.0
+	flies.material_override = fmat
+	add_child(flies)
+	day.night_fx.append(flies)
 
 func _mat(color: Color, rough := 0.9) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -368,6 +429,13 @@ func _lamp(at: Vector3) -> void:
 	glow.emission_energy_multiplier = 1.5
 	bulb.material_override = glow
 	add_child(bulb)
+	var light := OmniLight3D.new()
+	light.light_color = Color("#FFC870")
+	light.light_energy = 1.6
+	light.omni_range = 9.0
+	light.position = at + Vector3(0, 2.6, 0)
+	add_child(light)
+	day.lamps.append({"mat": glow, "light": light})
 
 func _flowerbed(at: Vector3) -> void:
 	var bed := MeshInstance3D.new()
@@ -413,8 +481,9 @@ func _scatter(path: String, count: int, scale: float, r: RandomNumberGenerator, 
 
 ## Instances a model; `solid` adds a box collider from its bounds so you can't walk through it.
 func _place(path: String, scale: float, pos: Vector3, yaw: float, solid := false, parent: Node3D = null) -> Node3D:
-	var ps: PackedScene = load("res://assets/3d/" + path)
-	var n: Node3D = ps.instantiate()
+	var ps: PackedScene = load("res://assets/3d/" + path) if ResourceLoader.exists("res://assets/3d/" + path) else null
+	if ps == null: push_warning("missing model " + path)
+	var n: Node3D = ps.instantiate() if ps else Node3D.new()
 	n.scale = Vector3.ONE * scale
 	n.position = pos
 	n.rotation_degrees.y = yaw
@@ -454,6 +523,7 @@ func _bounds(n: Node3D) -> AABB:
 
 func rebuild() -> void:
 	for c in _dynamic.get_children(): c.queue_free()
+	day.lamps = day.lamps.filter(func(l): return l.has("mat"))   # building lights are rebuilt below
 	_plots.clear()
 	_interact.clear()
 	var m: GameModel = Game.model
@@ -465,6 +535,10 @@ func rebuild() -> void:
 		if id != "inn": _building(id, m.owns_building(id))
 	_terrace(m)
 	_animals(m)
+	_place("farm/S_Silo.glb", 0.55, STOREHOUSE, 0, true, _dynamic)
+	_place("village/crate_A_big.gltf", 6.0, STOREHOUSE + Vector3(2.2, 0, 1.6), 20, false, _dynamic)
+	_place("village/sack.gltf", 6.0, STOREHOUSE + Vector3(-2.0, 0, 1.8), 0, false, _dynamic)
+	_add("Enter the storehouse", STOREHOUSE + Vector3(0, 0, 3.2), 2.8, func(): main.enter_interior("storehouse", STOREHOUSE + Vector3(0, 0, 3.5)), "barn")
 	# fields
 	for p in int(m.s["parcels"]):
 		_parcel(p, true)
@@ -580,33 +654,11 @@ func _chicken() -> Node3D:
 
 ## Café tables in front of the inn: one per unlocked table, with the waiting guests seated.
 func _terrace(m: GameModel) -> void:
-	var guests: Array = m.inn()["guests"]
-	for t in int(m.rep_tier()["tables"]):
+	for t in mini(int(m.rep_tier()["tables"]), 2):
 		var at: Vector3 = TABLES[t]
 		_place("restaurant/table_round_A.gltf", 0.55, at, 0, true, _dynamic)
 		_place("restaurant/chair_A.gltf", 1.0, at + Vector3(0, 0, 1.2), 180, false, _dynamic)
-		if t < guests.size():
-			var gid: String = guests[t]["char"]
-			var who := Character3D.make(Character3D.MODELS[abs(gid.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(gid.hash()) % 360) / 360.0, 0.35, 1.0))
-			who.scale = Vector3.ONE * 0.75
-			who.position = at + Vector3(0, 0.05, 1.05)
-			_dynamic.add_child(who)
-			who.play("Sit_Chair_Idle")
-			var bubble := Label3D.new()
-			bubble.text = "%s ×%d" % [GameData.item_name(guests[t]["order"].keys()[0]), int(guests[t]["order"].values()[0])]
-			bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			bubble.font_size = 30
-			bubble.pixel_size = 0.004
-			bubble.outline_size = 8
-			bubble.outline_modulate = UI.INK
-			bubble.position = Vector3(0, 2.4, 0)
-			who.add_child(bubble)
-			var ti: int = t
-			var order: Dictionary = guests[t]["order"]
-			var first: String = GameData.characters()[gid]["name"].split(" ")[0]
-			_add(func(): return ("Serve %s · %d coins" % [first, m.order_value(order)]) if m.has_items(order) else "Cook for %s" % first,
-				at, 2.8, func(): main.serve_at_table(ti), "inn")
-			who.set_meta("guest_table", t)
+
 
 func _building(id: String, owned: bool) -> void:
 	var b: Array = BUILDINGS[id]
@@ -614,8 +666,15 @@ func _building(id: String, owned: bool) -> void:
 	if owned:
 		var n := _place(b[0], b[1], b[2], b[3], true, _dynamic)
 		var door: Vector3 = b[2] + Vector3(0, 0, 5).rotated(Vector3.UP, deg_to_rad(b[3]))
-		var label := "Enter the inn" if id == "inn" else "Use %s" % info.get("name", id)
-		_add(label, door, 3.5, func(): main.open_building(id), "inn" if id == "inn" else "shop")
+		var label := "Enter the inn" if id == "inn" else ("Enter the %s" % info.get("name", id) if info.get("kind") == "workshop" else "Visit the %s" % info.get("name", id))
+		_add(label, door, 3.5, func(): main.open_building(id, door), "inn" if id == "inn" else "shop")
+		var warm := OmniLight3D.new()          # windows glow after dusk
+		warm.light_color = Color("#FFB860")
+		warm.light_energy = 2.2
+		warm.omni_range = 8.0
+		warm.position = b[2] + Vector3(0, 2.2, 3.2).rotated(Vector3.UP, deg_to_rad(b[3]))
+		_dynamic.add_child(warm)
+		day.lamps.append({"light": warm})
 		_ready_marker(n, id)
 	elif Game.model.is_unlocked(info.get("unlock_level", 99)):
 		var site := Node3D.new()
@@ -793,7 +852,11 @@ func _process(dt: float) -> void:
 	var best := {}
 	var best_d := INF
 	var pp := player.global_position
-	for it in _interact:
+	_inside_clock += dt
+	if interiors.kind != "" and _inside_clock > 5.0:   # refresh timers on interior signs
+		_inside_clock = 0.0
+		interiors.build()
+	for it in (_interact_in if interiors.kind != "" else _interact):
 		var d := Vector2(pp.x - it["pos"].x, pp.z - it["pos"].z).length()
 		if d < it["radius"] and d < best_d:
 			best = it

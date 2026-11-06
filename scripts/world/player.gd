@@ -20,6 +20,7 @@ func setup(model: String, tint: Color) -> void:
 	add_child(body)
 
 func _ready() -> void:
+	collision_mask = 1 | 2
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.45

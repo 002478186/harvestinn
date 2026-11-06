@@ -1,9 +1,23 @@
 {
   "_doc": "Global balancing numbers. See docs/ECONOMY.md for the formulas these feed.",
-  "start": {"coins": 50, "gems": 10, "items": {"wheat": 4, "carrot": 2}},
+  "start": {
+    "coins": 50,
+    "gems": 10,
+    "items": {
+      "wheat": 4,
+      "carrot": 2
+    }
+  },
   "max_level": 50,
-  "xp_curve": {"base": 20, "exponent": 1.55, "_formula": "xp_to_next(L) = round(base * L^exponent)"},
-  "level_up_gems": {"every_level": 1, "every_5th_bonus": 4},
+  "xp_curve": {
+    "base": 20,
+    "exponent": 1.55,
+    "_formula": "xp_to_next(L) = round(base * L^exponent)"
+  },
+  "level_up_gems": {
+    "every_level": 1,
+    "every_5th_bonus": 4
+  },
   "features": {
     "delivery_board": 3,
     "online_market": 5,
@@ -13,47 +27,217 @@
   },
   "parcels": {
     "_doc": "Fields you buy in the world: each parcel is cols x rows plots. The first one is the tutorial's first purchase.",
-    "cols": 3, "rows": 2,
+    "cols": 3,
+    "rows": 2,
     "list": [
-      {"cost": 20,    "unlock_level": 1},
-      {"cost": 150,   "unlock_level": 1},
-      {"cost": 450,   "unlock_level": 2},
-      {"cost": 1000,   "unlock_level": 3},
-      {"cost": 2000,  "unlock_level": 4},
-      {"cost": 3800,  "unlock_level": 6},
-      {"cost": 6500,  "unlock_level": 8},
-      {"cost": 10000,  "unlock_level": 11},
-      {"cost": 15000, "unlock_level": 15},
-      {"cost": 24000, "unlock_level": 20}
+      {
+        "cost": 20,
+        "unlock_level": 1
+      },
+      {
+        "cost": 150,
+        "unlock_level": 1
+      },
+      {
+        "cost": 450,
+        "unlock_level": 2
+      },
+      {
+        "cost": 1000,
+        "unlock_level": 3
+      },
+      {
+        "cost": 2000,
+        "unlock_level": 4
+      },
+      {
+        "cost": 3800,
+        "unlock_level": 6
+      },
+      {
+        "cost": 6500,
+        "unlock_level": 8
+      },
+      {
+        "cost": 10000,
+        "unlock_level": 11
+      },
+      {
+        "cost": 15000,
+        "unlock_level": 15
+      },
+      {
+        "cost": 24000,
+        "unlock_level": 20
+      }
     ]
   },
   "storage": {
-    "silo": [{"capacity": 60, "cost": 0}, {"capacity": 100, "cost": 300}, {"capacity": 160, "cost": 900}, {"capacity": 240, "cost": 2500}, {"capacity": 350, "cost": 6000}, {"capacity": 500, "cost": 14000}],
-    "barn": [{"capacity": 40, "cost": 0}, {"capacity": 70, "cost": 400}, {"capacity": 110, "cost": 1200}, {"capacity": 170, "cost": 3200}, {"capacity": 250, "cost": 7500}, {"capacity": 360, "cost": 16000}]
+    "silo": [
+      {
+        "capacity": 60,
+        "cost": 0
+      },
+      {
+        "capacity": 100,
+        "cost": 300
+      },
+      {
+        "capacity": 160,
+        "cost": 900
+      },
+      {
+        "capacity": 240,
+        "cost": 2500
+      },
+      {
+        "capacity": 350,
+        "cost": 6000
+      },
+      {
+        "capacity": 500,
+        "cost": 14000
+      }
+    ],
+    "barn": [
+      {
+        "capacity": 40,
+        "cost": 0
+      },
+      {
+        "capacity": 70,
+        "cost": 400
+      },
+      {
+        "capacity": 110,
+        "cost": 1200
+      },
+      {
+        "capacity": 170,
+        "cost": 3200
+      },
+      {
+        "capacity": 250,
+        "cost": 7500
+      },
+      {
+        "capacity": 360,
+        "cost": 16000
+      }
+    ]
   },
-  "speedup": {"seconds_per_gem": 600, "min_gems": 1},
-  "market": {"demand_min": 0.8, "demand_max": 1.3, "sell_cap_per_item_per_day": 200},
-  "trade": {"min_mult": 0.5, "max_mult": 3.0, "listing_slots": 4, "listing_fee_pct": 0.05, "listing_hours": 48, "daily_deposit_cap_per_item": 100},
+  "speedup": {
+    "seconds_per_gem": 600,
+    "min_gems": 1
+  },
+  "market": {
+    "demand_min": 0.8,
+    "demand_max": 1.3,
+    "sell_cap_per_item_per_day": 200
+  },
+  "trade": {
+    "min_mult": 0.5,
+    "max_mult": 3.0,
+    "listing_slots": 4,
+    "listing_fee_pct": 0.05,
+    "listing_hours": 48,
+    "daily_deposit_cap_per_item": 100
+  },
   "inn": {
     "meal_markup": 1.25,
     "tip_per_reputation_tier": 0.05,
     "guest_interval_seconds": 90,
     "reputation_tiers": [
-      {"reputation": 0,    "tables": 1, "max_order_items": 1, "name": "Roadside Rest"},
-      {"reputation": 10,   "tables": 2, "max_order_items": 2, "name": "Cozy Corner"},
-      {"reputation": 40,   "tables": 3, "max_order_items": 2, "name": "Village Favourite"},
-      {"reputation": 120,  "tables": 4, "max_order_items": 3, "name": "Valley Landmark"},
-      {"reputation": 300,  "tables": 5, "max_order_items": 3, "name": "Famous Inn"},
-      {"reputation": 700,  "tables": 6, "max_order_items": 3, "name": "Legendary Lodge"}
+      {
+        "reputation": 0,
+        "tables": 1,
+        "max_order_items": 1,
+        "name": "Roadside Rest"
+      },
+      {
+        "reputation": 10,
+        "tables": 2,
+        "max_order_items": 2,
+        "name": "Cozy Corner"
+      },
+      {
+        "reputation": 40,
+        "tables": 3,
+        "max_order_items": 2,
+        "name": "Village Favourite"
+      },
+      {
+        "reputation": 120,
+        "tables": 4,
+        "max_order_items": 3,
+        "name": "Valley Landmark"
+      },
+      {
+        "reputation": 300,
+        "tables": 5,
+        "max_order_items": 3,
+        "name": "Famous Inn"
+      },
+      {
+        "reputation": 700,
+        "tables": 6,
+        "max_order_items": 3,
+        "name": "Legendary Lodge"
+      }
     ],
     "reputation_per_meal": 1,
     "guest_rooms": [
-      {"cost": 2000,  "unlock_level": 20, "requires": {"blanket": 1, "pillow": 2}, "coins_per_hour": 40},
-      {"cost": 5000,  "unlock_level": 24, "requires": {"blanket": 1, "pillow": 2, "soap": 1}, "coins_per_hour": 70},
-      {"cost": 10000, "unlock_level": 30, "requires": {"blanket": 2, "pillow": 3, "soap": 2}, "coins_per_hour": 120}
+      {
+        "cost": 2000,
+        "unlock_level": 20,
+        "requires": {
+          "blanket": 1,
+          "pillow": 2
+        },
+        "coins_per_hour": 40
+      },
+      {
+        "cost": 5000,
+        "unlock_level": 24,
+        "requires": {
+          "blanket": 1,
+          "pillow": 2,
+          "soap": 1
+        },
+        "coins_per_hour": 70
+      },
+      {
+        "cost": 10000,
+        "unlock_level": 30,
+        "requires": {
+          "blanket": 2,
+          "pillow": 3,
+          "soap": 2
+        },
+        "coins_per_hour": 120
+      }
     ],
     "room_storage_hours": 12
   },
-  "delivery": {"slots": 3, "reward_mult": 1.5, "xp_mult": 0.08, "refresh_seconds": 1800, "max_kinds": 3, "min_qty": 2, "max_qty": 6},
-  "friends": {"help_reward_coins": 15, "help_reward_xp": 3, "helps_per_day": 5}
+  "delivery": {
+    "slots": 3,
+    "reward_mult": 1.5,
+    "xp_mult": 0.08,
+    "refresh_seconds": 1800,
+    "max_kinds": 3,
+    "min_qty": 2,
+    "max_qty": 6
+  },
+  "friends": {
+    "help_reward_coins": 15,
+    "help_reward_xp": 3,
+    "helps_per_day": 5
+  },
+  "day_night": {
+    "_doc": "One in-game day lasts day_minutes real minutes (0 = follow the device clock). Lamps light between lamps_on and lamps_off (hours).",
+    "day_minutes": 24,
+    "start_hour": 9,
+    "lamps_on": 18.5,
+    "lamps_off": 6.5
+  }
 }

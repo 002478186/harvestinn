@@ -6,7 +6,7 @@ var world: Node3D
 var player: CharacterBody3D
 var rig: Node3D
 var hud: CanvasLayer
-var inn: Control
+var fade := ColorRect.new()
 var seed := ""                 # last seed chosen: tapping empty plots re-plants it
 
 func _ready() -> void:
@@ -23,16 +23,13 @@ func _ready() -> void:
 	rig = preload("res://scripts/world/camera_rig.gd").new()
 	rig.target = player
 	world.add_child(rig)
-	var inn_layer := CanvasLayer.new()
-	inn_layer.layer = 1
-	add_child(inn_layer)
-	inn = preload("res://scripts/inn/inn_view.gd").new()
-	inn.main = self
-	inn.visible = false
-	inn_layer.add_child(inn)
 	hud = preload("res://scripts/ui/hud.gd").new()
 	hud.layer = 2
 	add_child(hud)
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.root.add_child(fade)
 	var tut := preload("res://scripts/ui/tutorial_card.gd").new()
 	tut.hud = hud
 	hud.root.add_child(tut)
@@ -47,6 +44,9 @@ func _ready() -> void:
 			rig.yaw = deg_to_rad(float(v[2])) if v.size() > 2 else 0.0
 			if v.size() > 3: rig.dist = float(v[3])
 			rig.global_position = player.global_position
+	for a in OS.get_cmdline_user_args():   # dev: -- --inside=inn / mill / storehouse
+		if a.begins_with("--inside="):
+			world.interiors.enter(a.substr(9), Vector3(0, 0, -9))
 	for a in OS.get_cmdline_user_args():   # dev aid for screenshots: -- --screen=shop / --screen=b:mill
 		if a.begins_with("--screen="):
 			var v := a.substr(9)
@@ -71,8 +71,9 @@ func _ready() -> void:
 	Game.welcome = {}
 
 func _process(_dt: float) -> void:
+	hud.clock.text = world.day.clock_text()
 	player.stick = hud.joystick.value
-	player.frozen = hud.sheet_open() or hud._popup_open or inn.visible
+	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
 	hud.action_btn.visible = hud.action_btn.visible and not player.frozen and hud.action_btn.text != ""
 
@@ -162,10 +163,33 @@ func build_here(id: String) -> void:
 	player.do_action("Cheer", world.current_target())
 	hud.toast(tr("%s built!") % tr(GameData.buildings()[id]["name"]))
 
-func open_building(id: String) -> void:
+func open_building(id: String, door := Vector3.ZERO) -> void:
 	player.do_action("Interact", world.current_target())
-	if id == "inn": show_inn()
+	var kind: String = GameData.buildings().get(id, {}).get("kind", "")
+	if id == "inn" or kind == "workshop": enter_interior(id, door if door != Vector3.ZERO else player.global_position)
 	else: Screens.open_building(self, id)
+
+## Fade to black, swap the scene to (or from) an interior, fade back in.
+func enter_interior(id: String, door: Vector3) -> void:
+	await _fade(1.0)
+	world.interiors.enter(id, door)
+	Sfx.play("door")
+	_fade(0.0)
+
+func leave_interior() -> void:
+	await _fade(1.0)
+	world.interiors.leave()
+	Sfx.play("door")
+	_fade(0.0)
+
+func _fade(to: float) -> void:
+	var tw := fade.create_tween()
+	tw.tween_property(fade, "color:a", to, 0.22)
+	await tw.finished
+
+func act_result(err: String, sfx: String) -> void:
+	if err != "": say_error(err)
+	else: Sfx.play(sfx)
 
 func talk_to(id: String, opens: String) -> void:
 	player.do_action("Interact", world.npc(id).global_position)
@@ -194,7 +218,7 @@ func serve_at_table(t: int) -> void:
 		hud.toast(tr("%s would love: %s") % [GameData.characters()[g["char"]]["name"].split(" ")[0],
 			", ".join(g["order"].keys().map(func(k): return "%s ×%d" % [GameData.item_name(k), int(g["order"][k])]))])
 		return
-	var at: Vector3 = world.TABLES[t]
+	var at: Vector3 = world.interiors.ORIGIN + world.interiors.DINING[t]
 	var err := m.serve_guest(t)
 	if err != "":
 		say_error(err)
@@ -208,14 +232,18 @@ func serve_at_table(t: int) -> void:
 	var lines: Array = GameData.characters()[g["char"]]["lines"].get("served", [])
 	if not lines.is_empty(): hud.toast("“%s”" % Dialogue.text(lines[0]))
 
+func serve_inside(t: int) -> void:
+	serve_at_table(t)
+
 func show_inn() -> void:
 	hud.close_sheet()
-	inn.visible = true
-	Sfx.play("door")
+	if world.interiors.kind != "inn":
+		var door: Vector3 = world.BUILDINGS["inn"][2] + Vector3(0, 0, 5)
+		if world.interiors.kind == "": enter_interior("inn", door)
+		else: world.interiors.enter("inn", door)
 
 func show_farm() -> void:
-	inn.visible = false
-	Sfx.play("door")
+	if world.interiors.kind != "": leave_interior()
 
 ## Dev aid (-- --demo): a mid-game farm for screenshots and manual testing.
 static func demo_farm(now: float) -> GameModel:
@@ -236,7 +264,15 @@ static func demo_farm(now: float) -> GameModel:
 	var crops := ["wheat", "carrot", "potato", "tomato", "corn", "strawberry", "sunflower", "pumpkin"]
 	for i in m.s["plots"].size():
 		m.plant(i, crops[i % crops.size()], now - 900.0 * (i % 5))
+	m.queue_recipe("mill", "flour", now - 200.0)
 	m.queue_recipe("mill", "flour", now)
+	m.s["reputation"] = 60
+	m.s["owned"].append_array(["furn_rug", "furn_bookshelf", "furn_plant"])
+	m.build_room(now)
+	m.add_items({"blanket": 1, "pillow": 2}, true)
+	m.furnish_room(0, now - 7200.0)
+	m.tick(now - 600.0)
+	m.tick(now)
 	m.s["coins"] = 200_000
 	m.s["name"] = "Hazel"
 	return m

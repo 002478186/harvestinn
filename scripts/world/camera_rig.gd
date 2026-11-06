@@ -8,7 +8,9 @@ var yaw := 0.0
 var pitch := deg_to_rad(-26.0)
 var dist := 9.5
 var cam := Camera3D.new()
-var look_offset := Vector3.ZERO     # shift the framing (e.g. the character creator puts you in the top half)
+var look_offset := Vector3.ZERO
+var anchor := Vector3.ZERO          # inside a room: framing leans toward the room centre
+var anchor_weight := 0.0     # shift the framing (e.g. the character creator puts you in the top half)
 var _touches := {}
 var _pinch := 0.0
 
@@ -20,11 +22,13 @@ func _ready() -> void:
 
 func _physics_process(dt: float) -> void:
 	if target == null: return
-	global_position = global_position.lerp(target.global_position + Vector3(0, 1.6, 0), 1.0 - exp(-follow_rate * dt))
+	var focus := (target.global_position + Vector3(0, 1.6, 0)).lerp(anchor + Vector3(0, 1.0, 0), anchor_weight)
+	global_position = global_position.lerp(focus, 1.0 - exp(-follow_rate * dt))
 	var offset := Vector3(0, 0, dist).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
 	var want := global_position + offset
 	var q := PhysicsRayQueryParameters3D.create(global_position, want)
 	q.exclude = [target.get_rid()]
+	q.collision_mask = 1
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if hit and hit["position"].y > 0.3:     # ignore the ground itself
 		want = global_position + (hit["position"] - global_position) * 0.9

@@ -4,6 +4,10 @@ A cozy **3D** farm-to-table game for iOS and Android. Create your farmer, walk t
 valley, buy a field, plant and harvest by hand, raise happy animals, craft goods in
 village workshops, cook for travellers at your own inn, and trade with other players online.
 
+**Everything is a place:** walk *into* the inn (seated guests, Basil's stove, guest-room beds),
+every workshop (stations + shelves of finished goods) and the storehouse (your stock as crates).
+A 24-minute day/night cycle (`data/economy.json → day_night`) lights lamps, windows, stars and fireflies.
+
 **Controls:** joystick (left thumb) or WASD to walk · drag on the right to turn the camera ·
 pinch / wheel to zoom · the green button does whatever is in front of you (buy, plant,
 harvest, talk, serve, build). **Hold** it and walk across a field to plant or harvest every plot.
