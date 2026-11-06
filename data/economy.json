@@ -11,17 +11,22 @@
     "guest_rooms": 20,
     "seasonal_events": 3
   },
-  "plots": {"start_cols": 4, "start_rows": 3, "max_cols": 8, "max_rows": 8},
-  "land_expansions": [
-    {"cols": 5, "rows": 3, "cost": 200,   "unlock_level": 2},
-    {"cols": 5, "rows": 4, "cost": 600,   "unlock_level": 4},
-    {"cols": 6, "rows": 4, "cost": 1500,  "unlock_level": 7},
-    {"cols": 6, "rows": 5, "cost": 3500,  "unlock_level": 10},
-    {"cols": 7, "rows": 5, "cost": 7000,  "unlock_level": 14},
-    {"cols": 7, "rows": 6, "cost": 12000, "unlock_level": 18},
-    {"cols": 8, "rows": 7, "cost": 20000, "unlock_level": 24},
-    {"cols": 8, "rows": 8, "cost": 35000, "unlock_level": 30}
-  ],
+  "parcels": {
+    "_doc": "Fields you buy in the world: each parcel is cols x rows plots. The first one is the tutorial's first purchase.",
+    "cols": 3, "rows": 2,
+    "list": [
+      {"cost": 20,    "unlock_level": 1},
+      {"cost": 150,   "unlock_level": 1},
+      {"cost": 450,   "unlock_level": 2},
+      {"cost": 1000,   "unlock_level": 3},
+      {"cost": 2000,  "unlock_level": 4},
+      {"cost": 3800,  "unlock_level": 6},
+      {"cost": 6500,  "unlock_level": 8},
+      {"cost": 10000,  "unlock_level": 11},
+      {"cost": 15000, "unlock_level": 15},
+      {"cost": 24000, "unlock_level": 20}
+    ]
+  },
   "storage": {
     "silo": [{"capacity": 60, "cost": 0}, {"capacity": 100, "cost": 300}, {"capacity": 160, "cost": 900}, {"capacity": 240, "cost": 2500}, {"capacity": 350, "cost": 6000}, {"capacity": 500, "cost": 14000}],
     "barn": [{"capacity": 40, "cost": 0}, {"capacity": 70, "cost": 400}, {"capacity": 110, "cost": 1200}, {"capacity": 170, "cost": 3200}, {"capacity": 250, "cost": 7500}, {"capacity": 360, "cost": 16000}]

@@ -1,12 +1,73 @@
 {
-  "_doc": "First-time tutorial led by the Innkeeper. goal: 'tap' (continue button) or {stat, n} (advances when stats[stat] >= n). hint: what the UI highlights (plot | inn | market). Text ids live in dialogue/<lang>.json.",
+  "_doc": "First-time tutorial led by the Innkeeper. goal: 'tap' (continue button) or {stat, n} (advances when stats[stat] >= n). hint: HUD element to pulse (action). Text ids live in dialogue/<lang>.json.",
   "steps": [
-    {"speaker": "innkeeper", "line": "tut_welcome", "goal": "tap"},
-    {"speaker": "innkeeper", "line": "tut_plant", "goal": {"stat": "planted", "n": 1}, "hint": "plot"},
-    {"speaker": "chef", "line": "tut_cook", "goal": {"stat": "cooked", "n": 1}, "hint": "inn"},
-    {"speaker": "innkeeper", "line": "tut_harvest", "goal": {"stat": "harvests", "n": 1}, "hint": "plot"},
-    {"speaker": "innkeeper", "line": "tut_serve", "goal": {"stat": "served", "n": 1}, "hint": "inn"},
-    {"speaker": "merchant", "line": "tut_sell", "goal": {"stat": "sold", "n": 1}, "hint": "market"},
-    {"speaker": "innkeeper", "line": "tut_done", "goal": "tap", "reward": {"coins": 50, "gems": 5}}
+    {
+      "speaker": "innkeeper",
+      "line": "tut_welcome",
+      "goal": "tap"
+    },
+    {
+      "speaker": "innkeeper",
+      "line": "tut_buy",
+      "goal": {
+        "stat": "parcels",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "innkeeper",
+      "line": "tut_plant",
+      "goal": {
+        "stat": "planted",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "chef",
+      "line": "tut_cook",
+      "goal": {
+        "stat": "cooked",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "innkeeper",
+      "line": "tut_harvest",
+      "goal": {
+        "stat": "harvests",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "innkeeper",
+      "line": "tut_serve",
+      "goal": {
+        "stat": "served",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "merchant",
+      "line": "tut_sell",
+      "goal": {
+        "stat": "sold",
+        "n": 1
+      },
+      "hint": "action"
+    },
+    {
+      "speaker": "innkeeper",
+      "line": "tut_done",
+      "goal": "tap",
+      "reward": {
+        "coins": 50,
+        "gems": 5
+      }
+    }
   ]
 }

@@ -4,13 +4,27 @@
 class_name SaveCodec
 extends RefCounted
 
-const VERSION := 2
+const VERSION := 3
 
 ## v1 -> v2: buildings, animals, inn, orders and the rest arrived after the first
 ## farm-only format; fill_defaults() supplies their empty state.
 const MIGRATIONS := {
 	1: "_m1_to_2",
+	2: "_m2_to_3",
 }
+
+## v2 -> v3: the 2D grid (cols x rows, "land" expansions) became fields bought in the 3D world.
+## Existing plots are kept and rounded up to whole parcels of 6.
+static func _m2_to_3(d: Dictionary) -> Dictionary:
+	var per := 6
+	var plots: Array = d.get("plots", [])
+	var parcels := ceili(plots.size() / float(per))
+	while plots.size() < parcels * per:
+		plots.append({"crop": "", "ready_at": 0, "planted_at": 0})
+	d["plots"] = plots
+	d["parcels"] = parcels
+	for k in ["cols", "rows", "land"]: d.erase(k)
+	return d
 
 static func _m1_to_2(d: Dictionary) -> Dictionary:
 	d["stats"] = d.get("stats", {})
@@ -42,9 +56,9 @@ static func decode(text: String) -> Dictionary:
 ## Keys added after v1 start empty; keeps old saves and new code compatible.
 static func fill_defaults(d: Dictionary) -> void:
 	var defaults := {
-		"reputation": 0, "stats": {}, "storage": {"silo": 0, "barn": 0}, "land": 0,
+		"reputation": 0, "stats": {}, "storage": {"silo": 0, "barn": 0}, "parcels": 0,
 		"buildings": {}, "animals": {}, "decor": [], "pos": {}, "owned": [],
-		"avatar": {"skin": 1, "hair": "short", "hair_color": 0, "outfit": "outfit_overalls", "hat": "hat_straw"},
+		"avatar": {"skin": 1, "hair": "short", "hair_color": 0, "outfit": "outfit_overalls", "hat": "hat_straw", "model": "", "tint": "#ffffff"},
 		"inn": {}, "deliveries": [], "market": {}, "daily": {}, "achievements": [],
 		"events": {}, "tutorial": 0, "flags": {}, "outbox": [], "rng": 1, "name": "",
 	}
@@ -53,9 +67,9 @@ static func fill_defaults(d: Dictionary) -> void:
 			d[k] = defaults[k].duplicate(true) if defaults[k] is Dictionary or defaults[k] is Array else defaults[k]
 
 static func _valid(d: Dictionary) -> bool:
-	for k in ["coins", "gems", "xp", "level", "inv", "plots", "cols", "rows"]:
+	for k in ["coins", "gems", "xp", "level", "inv", "plots", "parcels"]:
 		if not d.has(k): return false
-	return int(d["level"]) >= 1 and d["plots"] is Array and d["plots"].size() == int(d["cols"]) * int(d["rows"]) \
+	return int(d["level"]) >= 1 and d["plots"] is Array and d["plots"].size() == int(d["parcels"]) * GameModel.plots_per_parcel() \
 		and int(d["coins"]) >= 0 and int(d["gems"]) >= 0
 
 ## JSON numbers load as floats; whole numbers become ints so counters stay ints.

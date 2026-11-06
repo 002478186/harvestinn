@@ -17,7 +17,7 @@ func test_uuid_v4_format() -> bool:
 	return true
 
 func test_deposit_removes_first_and_refunds_on_refusal() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	eq(m.queue_deposit({"wheat": 3}, 10), "", "queued")
 	eq(m.count("wheat"), 1, "left the farm immediately")
 	eq(m.s["coins"], 40, "coins too")
@@ -29,7 +29,7 @@ func test_deposit_removes_first_and_refunds_on_refusal() -> bool:
 	return true
 
 func test_collect_adds_server_items_once() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	m.queue_collect()
 	m.queue_collect()
 	eq(m.s["outbox"].size(), 1, "one pending collect")
@@ -47,7 +47,7 @@ func test_server_rules_seed_matches_items() -> bool:
 	return true
 
 func test_collect_op_is_saved_before_sending_and_floats_ok() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	var seen := []
 	m.event.connect(func(n, _d): seen.append(n))
 	m.queue_collect()

@@ -66,8 +66,9 @@ class Sim:
         self.rng = random.Random(seed)
         self.coins, self.gems, self.xp, self.level, self.rep = st["coins"], st["gems"], 0, 1, 0
         self.inv = dict(st["items"])
-        self.cols, self.rows, self.land = ECO["plots"]["start_cols"], ECO["plots"]["start_rows"], 0
-        self.plots = [None] * (self.cols * self.rows)          # (crop, ready_at)
+        self.parcels = 0
+        self.plots = []                                          # (crop, ready_at); fields are bought
+        self.per = ECO["parcels"]["cols"] * ECO["parcels"]["rows"]
         self.storage = {"silo": 0, "barn": 0}
         self.buildings = {"kitchen": {"level": 0, "q": []}}
         self.guests, self.next_guest = [], 0.0
@@ -236,13 +237,12 @@ class Sim:
                 self.coins -= v["levels"][0]["cost"]
                 self.buildings[b] = {"level": 0, "q": []}
                 self.log.append((t, f"built {b}"))
-        ex = ECO["land_expansions"]
-        if self.land < len(ex) and self.unlocked(ex[self.land]["unlock_level"]) and self.coins >= ex[self.land]["cost"] * 1.5:
-            e = ex[self.land]
-            self.coins -= e["cost"]
-            self.plots += [None] * (e["cols"] * e["rows"] - len(self.plots))
-            self.land += 1
-            self.log.append((t, f"land {e['cols']}x{e['rows']}"))
+        ex = ECO["parcels"]["list"]
+        if self.parcels < len(ex) and self.unlocked(ex[self.parcels]["unlock_level"]) and (self.parcels == 0 or self.coins >= ex[self.parcels]["cost"] * 1.5) and self.coins >= ex[self.parcels]["cost"]:
+            self.coins -= ex[self.parcels]["cost"]
+            self.plots += [None] * self.per
+            self.parcels += 1
+            self.log.append((t, f"field {self.parcels}"))
         for k in ("silo", "barn"):
             lv = ECO["storage"][k]
             if self.storage[k] + 1 < len(lv) and self.used(k) > self.cap(k) * 0.8 and self.coins >= lv[self.storage[k] + 1]["cost"] * 1.5:

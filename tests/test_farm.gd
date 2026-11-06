@@ -3,11 +3,11 @@ extends TestCase
 var m: GameModel
 
 func setup() -> void:
-	m = GameModel.new_game(1000.0)
+	m = new_farm(1000.0)
 
 func test_new_game_has_start_resources() -> bool:
 	eq(m.s["coins"], 50, "coins")
-	eq(m.s["plots"].size(), 12, "plots 4x3")
+	eq(m.s["plots"].size(), 6, "first field: 3x2 plots")
 	eq(m.count("wheat"), 4, "start wheat")
 	return true
 

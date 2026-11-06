@@ -48,6 +48,7 @@ func _relay(n: String, d: Dictionary) -> void:
 
 func save() -> void:
 	_save_queued = false
+	if model == null: return
 	model.s["last_seen"] = now()
 	var err := SaveCodec.write_atomic(save_path, model.s)
 	if err != OK:

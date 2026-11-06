@@ -3,7 +3,7 @@ extends TestCase
 var m: GameModel
 
 func setup() -> void:
-	m = GameModel.new_game(0.0)
+	m = new_farm(0.0)
 
 func test_tutorial_guest_orders_stew_and_pays_markup() -> bool:
 	m.tick(0.0)

@@ -7,7 +7,7 @@ func setup() -> void:
 		if FileAccess.file_exists(p): DirAccess.remove_absolute(p)
 
 func test_roundtrip_keeps_ints_and_state() -> bool:
-	var m := GameModel.new_game(1000.0)
+	var m := new_farm(1000.0)
 	m.plant(0, "wheat", 1000.0)
 	m.add_xp(5)
 	eq(SaveCodec.write_atomic(PATH, m.s), OK, "write")
@@ -19,7 +19,7 @@ func test_roundtrip_keeps_ints_and_state() -> bool:
 	return true
 
 func test_corrupt_main_falls_back_to_bak() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	SaveCodec.write_atomic(PATH, m.s)
 	m.s["coins"] = 999
 	SaveCodec.write_atomic(PATH, m.s)          # first save is now .bak
@@ -36,6 +36,8 @@ func test_migrates_v1_save() -> bool:
 	eq(d["version"], SaveCodec.VERSION, "upgraded")
 	eq(d["coins"], 77, "gold renamed to coins")
 	truthy(d.has("buildings") and d.has("inn"), "defaults filled")
+	eq(d["parcels"], 1, "v2 grid -> 1 parcel")
+	eq(d["plots"].size(), 6, "padded to a whole field")
 	return true
 
 func test_rejects_newer_and_garbage() -> bool:
@@ -45,7 +47,7 @@ func test_rejects_newer_and_garbage() -> bool:
 	return true
 
 func test_offline_summary_counts_finished_crops() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	m.plant(0, "wheat", 0.0)     # ready at 60
 	m.plant(1, "carrot", 0.0)    # ready at 300
 	var w := m.offline_summary(10.0, 100.0)

@@ -34,7 +34,8 @@ static func open(main, screen: String) -> void:
 		"gift": daily(main, true)
 		"trophy": achievements(main)
 		"event": events(main)
-		"inn": main.show_farm() if main.inn.visible else main.show_inn()
+		"menu": menu(main)
+		"inn": main.show_inn()
 		_: main.hud.toast(tr_("Coming soon"))
 
 static func open_building(main, id: String) -> void:
@@ -78,14 +79,7 @@ static func seed_picker(main, plot: int) -> void:
 		var ok := m.is_unlocked(c["unlock_level"])
 		var sub := ("%s · %d coins · sells %d" % [UI.fmt_time(c["grow_seconds"]), int(c["seed_cost"]), GameData.item_price(cid)]) if ok \
 			else tr_("Unlocks at level %d") % int(c["unlock_level"])
-		body.add_child(row(UI.item_tex(cid), tr_(GameData.item_name(cid)), sub, tr_("Plant") if ok else LOCK, func():
-			var err := m.plant(plot, cid, Game.now())
-			main.hud.close_sheet()
-			if err != "":
-				main.say_error(err)
-				return
-			Sfx.play("plant")
-			main.start_planting(cid), ok))
+		body.add_child(row(UI.item_tex(cid), tr_(GameData.item_name(cid)), sub, tr_("Plant") if ok else LOCK, func(): main.choose_seed(cid, plot), ok))
 
 static func growing_plot(main, i: int) -> void:
 	var m: GameModel = Game.model
@@ -181,66 +175,71 @@ static func settings(main) -> void:
 	mus.toggled.connect(func(on): Sfx.set_audio(Sfx.sfx_on, on))
 	body.add_child(mus)
 	account_section(main, body)
-	body.add_child(UI.button(tr_("My Farmer"), func(): avatar_editor(main), UI.MEADOW))
+	body.add_child(UI.button(tr_("My Farmer"), func(): character_creator(main), UI.MEADOW))
 	body.add_child(UI.button(tr_("Villagers"), func(): cast(main), UI.WOOD_DARK))
 	if not m.tutorial_step().is_empty():
 		body.add_child(UI.button(tr_("Skip tutorial"), func(): m.skip_tutorial(); main.hud.close_sheet(), UI.WOOD_DARK))
 	body.add_child(UI.label(tr_("HarvestInn v%s · Credits in CREDITS.md") % ProjectSettings.get_setting("application/config/version"), 20, UI.WOOD_DARK))
 
-static func avatar_editor(main) -> void:
+const OUTFIT_TINTS := ["#FFFFFF", "#F2B84B", "#7CC35A", "#8FD3F4", "#E07A5F", "#C97BB5", "#D8B67E", "#9AA0A6"]
+
+## Choose your farmer: body model, outfit colour and name, previewed live on the 3D character.
+static func character_creator(main) -> void:
 	var m: GameModel = Game.model
-	var body: VBoxContainer = main.hud.sheet(tr_("My Farmer"), 0.9)
 	var a: Dictionary = m.s["avatar"]
-	var preview := CenterContainer.new()
-	preview.add_child(Avatar.make(a, 260))
-	body.add_child(preview)
-	var name_row := HBoxContainer.new()
+	if str(a.get("model", "")) == "":
+		m.set_avatar("model", Character3D.MODELS[0])
+	main.rig.dist = 6.5
+	var body: VBoxContainer = main.hud.sheet(tr_("Your farmer"), 0.48)
+	var redo := func(): character_creator(main)
+	var models := Character3D.MODELS
+	var i := models.find(str(a["model"]))
+	var row1 := HBoxContainer.new()
+	row1.add_child(UI.button("<", func(): m.set_avatar("model", models[(i - 1 + models.size()) % models.size()]); main.player.do_action("Cheer", main.rig.cam.global_position); redo.call(), UI.WOOD_DARK))
+	var name_l := UI.label(tr_("Look %d of %d") % [i + 1, models.size()], 30, UI.RED, 600, false)
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row1.add_child(name_l)
+	row1.add_child(UI.button(">", func(): m.set_avatar("model", models[(i + 1) % models.size()]); main.player.do_action("Cheer", main.rig.cam.global_position); redo.call(), UI.WOOD_DARK))
+	body.add_child(row1)
+	body.add_child(UI.label(tr_("Outfit colour"), 26, UI.WOOD_DARK, 600))
+	var sw := HFlowContainer.new()
+	for c in OUTFIT_TINTS:
+		var b := UI.button("", func(): m.set_avatar("tint", c); redo.call(), Color(c))
+		b.custom_minimum_size = Vector2(84, 84)
+		if str(a.get("tint", "#ffffff")).to_lower() == c.to_lower():
+			b.add_theme_stylebox_override("normal", UI.box(Color(c), 22, 8, UI.RED))
+		sw.add_child(b)
+	body.add_child(sw)
+	var nrow := HBoxContainer.new()
 	var name_edit := LineEdit.new()
 	name_edit.text = m.s["name"]
 	name_edit.placeholder_text = tr_("Your name")
 	name_edit.max_length = 16
 	name_edit.custom_minimum_size.y = UI.MIN_TAP
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(name_edit)
-	name_row.add_child(UI.button(tr_("Save"), func():
-		var err := m.set_player_name(name_edit.text)
-		if err == "name_short": main.say_error("Name is too short")
-		elif err == "name_blocked": main.say_error("Please choose a kinder name")
-		else:
-			Net.call_rpc("set_display_name", {"p_name": m.s["name"]})
-			main.hud.toast(tr_("Nice to meet you, %s!") % m.s["name"]), UI.MEADOW))
-	body.add_child(name_row)
-	var redo := func(): avatar_editor(main)
-	_choice_row(body, tr_("Skin"), Avatar.SKINS.size(), func(i): return Color(Avatar.SKINS[i]), func(i): m.set_avatar("skin", i); redo.call())
-	_choice_row(body, tr_("Hair colour"), Avatar.HAIR_COLORS.size(), func(i): return Color(Avatar.HAIR_COLORS[i]), func(i): m.set_avatar("hair_color", i); redo.call())
-	var styles := HBoxContainer.new()
-	for st in Avatar.HAIR_STYLES:
-		styles.add_child(UI.button(tr_(st.capitalize()), func(): m.set_avatar("hair", st); redo.call(), UI.MEADOW if a["hair"] == st else UI.WOOD_DARK))
-	body.add_child(styles)
-	for slot in ["outfit", "hat"]:
-		body.add_child(UI.label(tr_(slot.capitalize()), 28, UI.RED, 600))
-		var g := GridContainer.new()
-		g.columns = 2
-		for cid in GameData.cosmetics():
-			var c: Dictionary = GameData.cosmetics()[cid]
-			if c["slot"] != slot: continue
-			var owned := m.owns(cid)
-			var b := UI.button(tr_(c["name"]), func():
-				if m.set_avatar(slot, cid) != "": main.say_error("Buy it in the Shop first")
-				else: redo.call(), UI.MEADOW if a[slot] == cid else (UI.WOOD_DARK if owned else Color("#B8A89A")))
-			b.add_theme_font_size_override("font_size", 22)
-			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if not owned: b.icon = UI.icon("lock")
-			g.add_child(b)
-		body.add_child(g)
+	nrow.add_child(name_edit)
+	nrow.add_child(UI.button(tr_("Start farming!"), func():
+		var err := m.set_player_name(name_edit.text if name_edit.text.strip_edges() != "" else "Farmer")
+		if err == "name_blocked":
+			main.say_error("Please choose a kinder name")
+			return
+		Net.call_rpc("set_display_name", {"p_name": m.s["name"]})
+		main.rig.dist = 9.5
+		main.hud.close_sheet()
+		Sfx.play("level_up")
+		main.player.do_action("Cheer", main.rig.cam.global_position), UI.MEADOW))
+	body.add_child(nrow)
 
-static func _choice_row(body: VBoxContainer, title: String, n: int, color_of: Callable, pick: Callable) -> void:
-	body.add_child(UI.label(title, 28, UI.RED, 600))
-	var h := HBoxContainer.new()
-	for i in n:
-		var b := UI.button("", func(): pick.call(i), color_of.call(i))
-		h.add_child(b)
-	body.add_child(h)
+static func animal_guide(main) -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Animal homes"), 0.6)
+	for h in ["coop", "barn_stall", "goat_pen", "sheep_pen"]:
+		var b: Dictionary = GameData.buildings()[h]
+		var owned := m.owns_building(h)
+		body.add_child(row(UI.tex("res://assets/art/animals/%s.svg" % b["animal"]), tr_(b["name"]),
+			tr_("%d animals · %d ready") % [m.s["animals"].get(h, []).size(), m.animals_ready(h, Game.now())] if owned else (tr_("Build it east of the fields") if m.is_unlocked(b["unlock_level"]) else tr_("Unlocks at level %d") % int(b["unlock_level"])),
+			tr_("Open") if owned else "", func(): animals(main, h), owned, UI.MEADOW))
 
 static func cast(main) -> void:
 	var body: VBoxContainer = main.hud.sheet(tr_("Villagers & Guests"), 0.9)
@@ -387,12 +386,6 @@ static func shop_extra(main, body: VBoxContainer, tab: String) -> void:
 		if err != "": main.say_error(err)
 		else: Sfx.play("coins"); again.call()
 	if tab == "farm":
-		var ex := m.next_land()
-		if not ex.is_empty():
-			var ok := m.is_unlocked(ex["unlock_level"])
-			body.add_child(row(UI.icon("farm"), tr_("Land expansion → %d×%d plots") % [int(ex["cols"]), int(ex["rows"])],
-				tr_("%d coins") % int(ex["cost"]) if ok else tr_("Unlocks at level %d") % int(ex["unlock_level"]),
-				tr_("Buy") if ok else LOCK, func(): act.call(m.buy_land()), ok, UI.MEADOW))
 		for kind in ["silo", "barn"]:
 			var levels: Array = GameData.economy()["storage"][kind]
 			var next := int(m.s["storage"][kind]) + 1
@@ -410,8 +403,7 @@ static func shop_extra(main, body: VBoxContainer, tab: String) -> void:
 		if slot == "furniture": sub += " · +%d %s" % [int(c["reputation"]), tr_("reputation")]
 		var tex: Texture2D = UI.tex("res://assets/art/decor/%s.svg" % cid) if slot == "decor" else (UI.tex("res://assets/art/avatar/hat_%s.svg" % cid) if slot == "hat" else UI.item_tex("blanket" if slot == "furniture" else "sweater"))
 		body.add_child(row(tex, tr_(c["name"]), sub, tr_("Buy") if ok and not owned else (LOCK if not ok else tr_("Owned")), func():
-			var t: Vector2i = main.farm.free_tile()
-			act.call(m.buy_cosmetic(cid, t.x, t.y)), ok and not owned, UI.MEADOW))
+			act.call(m.buy_cosmetic(cid, randi_range(-30, 30), randi_range(-30, 30))), ok and not owned, UI.MEADOW))
 
 # ------------------------------------------------------------------ market + deliveries
 
@@ -700,3 +692,22 @@ static func events(main) -> void:
 			var err := m.claim_event(e["id"], Game.now())
 			if err != "": main.say_error(err)
 			else: Sfx.play("level_up"); events(main), UI.WHEAT))
+
+## Everything that isn't part of walking around the valley, in one tidy grid.
+static func menu(main) -> void:
+	var body: VBoxContainer = main.hud.sheet(tr_("Menu"), 0.62)
+	var g := GridContainer.new()
+	g.columns = 3
+	var items := [["orders", "Village orders"], ["gift", "Daily gift"], ["trophy", "Achievements"], ["friends", "Friends"],
+		["market", "Market"], ["settings", "Settings"]]
+	if not GameModel.active_events(Game.now()).is_empty(): items.insert(0, ["event", "Event!"])
+	for it in items:
+		var b := UI.button(tr_(it[1]), func(): open(main, it[0]), UI.CREAM, UI.icon({"event": "xp"}.get(it[0], it[0])))
+		b.add_theme_color_override("font_color", UI.INK)
+		b.add_theme_font_size_override("font_size", 22)
+		b.custom_minimum_size = Vector2(200, 170)
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.add_theme_constant_override("icon_max_width", 72)
+		g.add_child(b)
+	body.add_child(g)

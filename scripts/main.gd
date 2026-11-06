@@ -1,16 +1,28 @@
-## Root: wires the farm world, HUD and screens together. Holds no game rules.
+## Root of the 3D game: world + player + camera + HUD. Turns world interactions into
+## model calls (GameModel holds every rule) and plays the matching character animation.
 extends Node
 
-var farm: Node2D
+var world: Node3D
+var player: CharacterBody3D
+var rig: Node3D
 var hud: CanvasLayer
 var inn: Control
-var planting := ""            # crop id while in planting mode
+var seed := ""                 # last seed chosen: tapping empty plots re-plants it
 
 func _ready() -> void:
 	if "--demo" in OS.get_cmdline_user_args():
 		Game.set_model(demo_farm(Game.now()))
-	farm = preload("res://scripts/farm/farm_view.gd").new()
-	add_child(farm)
+	world = preload("res://scripts/world/world.gd").new()
+	world.main = self
+	add_child(world)
+	player = preload("res://scripts/world/player.gd").new()
+	player.position = Vector3(0, 0, 0)
+	world.add_child(player)
+	world.player = player
+	_dress_player()
+	rig = preload("res://scripts/world/camera_rig.gd").new()
+	rig.target = player
+	world.add_child(rig)
 	var inn_layer := CanvasLayer.new()
 	inn_layer.layer = 1
 	add_child(inn_layer)
@@ -24,80 +36,158 @@ func _ready() -> void:
 	var tut := preload("res://scripts/ui/tutorial_card.gd").new()
 	tut.hud = hud
 	hud.root.add_child(tut)
-	farm.plot_tapped.connect(_on_plot)
-	farm.building_tapped.connect(_on_building)
-	farm.fly.connect(hud.fly)
+	world.action_changed.connect(hud.set_action)
 	hud.nav.connect(_on_nav)
 	Game.event.connect(_on_event)
 	Net.cloud_conflict.connect(func(server): Screens.cloud_conflict(self, server))
+	for a in OS.get_cmdline_user_args():   # dev: -- --at=x,z,yaw_degrees,dist puts player + camera there
+		if a.begins_with("--at="):
+			var v := a.substr(5).split(",")
+			player.global_position = Vector3(float(v[0]), 0, float(v[1]))
+			rig.yaw = deg_to_rad(float(v[2])) if v.size() > 2 else 0.0
+			if v.size() > 3: rig.dist = float(v[3])
+			rig.global_position = player.global_position
 	for a in OS.get_cmdline_user_args():   # dev aid for screenshots: -- --screen=shop / --screen=b:mill
 		if a.begins_with("--screen="):
 			var v := a.substr(9)
 			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
 			else: Screens.open(self, v)
-	if Game.model.tutorial_step().is_empty() and Game.model.daily_index(Game.now()) >= 0:
+	var clean := "--clean" in OS.get_cmdline_user_args()   # dev: screenshots without popups
+	if clean:
+		Game.model.s["daily"] = {"last": GameModel.local_day(Game.now()), "streak": 1}
+		Game.model.skip_tutorial()
+		if str(Game.model.s["avatar"].get("model", "")) == "": Game.model.s["avatar"]["model"] = "Rogue_Hooded"
+	if str(Game.model.s["avatar"].get("model", "")) == "" and not "--demo" in OS.get_cmdline_user_args():
+		Screens.character_creator(self)
+	elif Game.model.tutorial_step().is_empty() and Game.model.daily_index(Game.now()) >= 0:
 		Screens.daily(self)
-	var w := Game.welcome
+	var w := Game.welcome if not clean else {}
 	if float(w.get("away", 0.0)) > 3600.0 or ["crops", "jobs", "animals", "guests", "room_coins"].any(func(k): return int(w.get(k, 0)) > 0) and float(w.get("away", 0.0)) > 60.0:
-		Screens.welcome_back(self, Game.welcome)
-		Game.welcome = {}
+		Screens.welcome_back(self, w)
+	Game.welcome = {}
+
+func _process(_dt: float) -> void:
+	player.stick = hud.joystick.value
+	player.frozen = hud.sheet_open() or hud._popup_open or inn.visible
+	hud.joystick.visible = not player.frozen
+	hud.action_btn.visible = hud.action_btn.visible and not player.frozen and hud.action_btn.text != ""
+
+func _dress_player() -> void:
+	var a: Dictionary = Game.model.s["avatar"]
+	var model := str(a.get("model", ""))
+	player.setup(model if model != "" else "Rogue_Hooded", Color(str(a.get("tint", "#ffffff"))))
 
 func _on_event(name: String, d: Dictionary) -> void:
-	if name == "harvest":
-		farm.harvest_feedback(d["index"], d["crop"], d["qty"])
-	elif name == "achievement":
-		Sfx.play("level_up")
-		hud.toast(tr("Achievement: %s!") % tr(GameData.achievements()[d["id"]]["name"]))
-	elif name == "tutorial" and Game.model.tutorial_step().is_empty():
-		Screens.daily(self)
-	elif name == "helped":
-		hud.toast(tr("%s watered one of your crops!") % d["name"])
-	elif name == "level_up":
-		Screens.talk(self, Dialogue.for_level_up(d["level"], d["unlocks"]))
+	match name:
+		"harvest": world.harvest_fx(d["index"], d["crop"])
+		"avatar", "reset": _dress_player()
+		"achievement":
+			Sfx.play("level_up")
+			hud.toast(tr("Achievement: %s!") % tr(GameData.achievements()[d["id"]]["name"]))
+		"tutorial":
+			if Game.model.tutorial_step().is_empty(): Screens.daily(self)
+		"helped": hud.toast(tr("%s watered one of your crops!") % d["name"])
+		"level_up":
+			player.do_action("Cheer", player.global_position + Vector3(0, 0, -1))
+			Screens.talk(self, Dialogue.for_level_up(d["level"], d["unlocks"]))
 
 func say_error(code: String) -> void:
 	Sfx.play("error")
 	hud.toast(tr(Screens.ERRORS.get(code, code)))
 
-func _on_plot(i: int) -> void:
-	var m := Game.model
+func _on_nav(screen: String) -> void:
+	if screen == "action":
+		world.act()
+		world._last_swept = world._current.get("plot", -1)
+	elif screen == "sweep_on": world.sweeping = true
+	elif screen == "sweep_off":
+		world.sweeping = false
+		world._last_swept = -1
+	else: Screens.open(self, screen)
+
+# ------------------------------------------------------------------ farming verbs
+
+func buy_field() -> void:
+	var err := Game.model.buy_parcel()
+	if err != "":
+		say_error(err)
+		return
+	Sfx.play("build")
+	player.do_action("Cheer", world.current_target())
+	hud.toast(tr("A new field is yours! Walk onto the soil to plant."))
+
+## Empty plot: plant (asks for a seed the first time). Growing: details. Ready: harvest.
+func plot_action(i: int) -> void:
+	var m: GameModel = Game.model
 	var now := Game.now()
 	var p: Dictionary = m.s["plots"][i]
 	if p["crop"] == "":
-		if planting != "":
-			var err := m.plant(i, planting, now)
-			if err == "": Sfx.play("plant")
-			else: say_error(err)
-		else:
+		if seed == "" or not m.is_unlocked(GameData.crops()[seed]["unlock_level"]):
 			Screens.seed_picker(self, i)
+			return
+		var err := m.plant(i, seed, now)
+		if err == "no_coins":
+			Screens.seed_picker(self, i)
+			return
+		if err != "":
+			say_error(err)
+			return
+		Sfx.play("plant")
+		player.do_action("Use_Item", world.plot_pos(i))
 	elif m.plot_remaining(i, now) <= 0.0:
 		var err := m.harvest(i, now)
-		if err == "": Sfx.play("harvest")
-		else: say_error(err)
+		if err != "":
+			say_error(err)
+			return
+		Sfx.play("harvest")
+		player.do_action("PickUp", world.plot_pos(i))
 	else:
 		Screens.growing_plot(self, i)
 
-func start_planting(crop: String) -> void:
-	planting = crop
-	hud.banner(tr("Planting %s: tap empty plots") % tr(GameData.item_name(crop)), func(): planting = "")
+func choose_seed(crop: String, plot: int) -> void:
+	seed = crop
+	hud.close_sheet()
+	plot_action(plot)
 
-func _on_building(id: String) -> void:
-	Screens.open_building(self, id)
+func build_here(id: String) -> void:
+	var err := Game.model.build(id)
+	if err != "":
+		say_error(err)
+		return
+	Sfx.play("build")
+	player.do_action("Cheer", world.current_target())
+	hud.toast(tr("%s built!") % tr(GameData.buildings()[id]["name"]))
 
-func _on_nav(screen: String) -> void:
-	Screens.open(self, screen)
+func open_building(id: String) -> void:
+	player.do_action("Interact", world.current_target())
+	if id == "inn": show_inn()
+	else: Screens.open_building(self, id)
+
+func talk_to(id: String, opens: String) -> void:
+	player.do_action("Interact", world.npc(id).global_position)
+	world.npc(id).play("Interact")
+	var c: Dictionary = GameData.characters()[id]
+	var line: String = c["lines"]["greet"].pick_random()
+	hud.queue_popup(func():
+		var v: VBoxContainer = hud.popup(c["name"])
+		var por := Portrait.make(id, 180)
+		v.add_child(por)
+		v.move_child(por, 0)
+		v.add_child(UI.label(tr(c["role"]), 24, UI.WOOD_DARK, 600))
+		v.add_child(UI.label(Dialogue.text(line, Game.model.s["name"]), 28))
+		var labels := {"inn": "Show me the inn", "kitchen": "Let's cook", "market": "Let's trade", "shop": "What can I build?", "animals": "Tell me about animals"}
+		var go := {"inn": show_inn, "kitchen": func(): Screens.workshop(self, "kitchen"), "market": func(): Screens.market(self),
+			"shop": func(): Screens.shop(self), "animals": func(): Screens.animal_guide(self)}
+		v.add_child(UI.button(tr(labels[opens]), func(): hud.close_popup(v); go[opens].call(), UI.MEADOW))
+		v.add_child(UI.button(tr("Bye!"), func(): hud.close_popup(v), UI.WOOD_DARK)))
 
 func show_inn() -> void:
 	hud.close_sheet()
-	hud.clear_banner()
-	planting = ""
 	inn.visible = true
-	farm.set_process_unhandled_input(false)
 	Sfx.play("door")
 
 func show_farm() -> void:
 	inn.visible = false
-	farm.set_process_unhandled_input(true)
 	Sfx.play("door")
 
 ## Dev aid (-- --demo): a mid-game farm for screenshots and manual testing.
@@ -107,7 +197,8 @@ static func demo_farm(now: float) -> GameModel:
 	m.s["coins"] = 200_000
 	m.s["gems"] = 50
 	m.skip_tutorial()
-	for i in 5: m.buy_land()
+	m.s["avatar"]["model"] = "Rogue_Hooded"
+	for i in 6: m.buy_parcel()
 	for b in ["mill", "bakery", "jam_kitchen", "coop", "barn_stall", "goat_pen", "sheep_pen", "dairy"]:
 		m.build(b)
 	m.add_items({"animal_feed": 40, "wheat": 30, "carrot": 20, "potato": 20, "tomato": 12, "strawberry": 12}, true)
@@ -117,7 +208,7 @@ static func demo_farm(now: float) -> GameModel:
 			m.feed_animal(h, k, now - (3000.0 if k == 0 else 0.0))
 	var crops := ["wheat", "carrot", "potato", "tomato", "corn", "strawberry", "sunflower", "pumpkin"]
 	for i in m.s["plots"].size():
-		m.plant(i, crops[i % crops.size()], now - 400.0 * (i % 4))
+		m.plant(i, crops[i % crops.size()], now - 900.0 * (i % 5))
 	m.queue_recipe("mill", "flour", now)
 	m.s["coins"] = 200_000
 	m.s["name"] = "Hazel"

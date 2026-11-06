@@ -25,8 +25,12 @@ func _ready() -> void:
 
 func _stream(name: String) -> AudioStream:
 	if not _cache.has(name):
-		var path := "res://assets/audio/%s.wav" % name
-		_cache[name] = load(path) if ResourceLoader.exists(path) else null
+		_cache[name] = null
+		for ext in ["wav", "ogg"]:
+			var path := "res://assets/audio/%s.%s" % [name, ext]
+			if ResourceLoader.exists(path):
+				_cache[name] = load(path)
+				break
 	return _cache[name]
 
 func play(name: String, pitch_jitter := 0.08) -> void:

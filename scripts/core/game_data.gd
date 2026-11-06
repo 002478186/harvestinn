@@ -76,9 +76,9 @@ static func unlocks_at(level: int) -> Array[Dictionary]:
 	for f in feats:
 		if int(feats[f]) == level:
 			out.append({"kind": "feature", "id": f, "name": f.capitalize()})
-	for exp in economy()["land_expansions"]:
-		if int(exp["unlock_level"]) == level:
-			out.append({"kind": "land", "id": "land", "name": "Land expansion"})
+	for p in economy()["parcels"]["list"]:
+		if int(p["unlock_level"]) == level and level > 1:
+			out.append({"kind": "land", "id": "land", "name": "New field for sale"})
 	for c in cosmetics():
 		if int(cosmetics()[c].get("unlock_level", 999)) == level:
 			out.append({"kind": "cosmetic", "id": c, "name": str(cosmetics()[c]["name"])})

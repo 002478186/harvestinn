@@ -3,7 +3,7 @@ extends TestCase
 var m: GameModel
 
 func setup() -> void:
-	m = GameModel.new_game(0.0)
+	m = new_farm(0.0)
 	m.s["coins"] = 100_000
 
 func test_demand_is_bounded_deterministic_and_changes_daily() -> bool:
@@ -45,15 +45,19 @@ func test_deliveries_generate_from_producible_and_pay_bonus() -> bool:
 	truthy(not m.s["deliveries"][0]["items"].is_empty(), "refilled after 30 min")
 	return true
 
-func test_land_expansion_keeps_crops_in_place() -> bool:
-	m.s["level"] = 4
-	m.plant(5, "wheat", 0.0)          # col 1, row 1 of a 4-wide grid
-	eq(m.buy_land(), "", "first expansion")
-	eq(m.s["plots"].size(), 15, "5x3")
-	eq(m.s["plots"][6]["crop"], "wheat", "col 1 row 1 of 5-wide grid")
-	eq(m.buy_land(), "", "second")
-	eq(m.s["plots"].size(), 20, "5x4")
-	eq(m.buy_land(), "locked", "third needs L7")
+func test_fields_are_bought_one_by_one() -> bool:
+	var g := GameModel.new_game(0.0)
+	eq(g.s["plots"].size(), 0, "a new farm owns no land")
+	eq(g.plant(0, "wheat", 0.0), "bad_plot", "nothing to plant on")
+	eq(g.buy_parcel(), "", "first field: 20 coins")
+	eq(g.s["coins"], 30, "paid")
+	eq(g.s["plots"].size(), 6, "6 plots")
+	g.plant(2, "wheat", 0.0)
+	g.s["coins"] = 10_000
+	eq(g.buy_parcel(), "", "second field")
+	eq(g.s["plots"][2]["crop"], "wheat", "existing crops stay put")
+	eq(g.s["plots"].size(), 12, "12 plots")
+	eq(g.buy_parcel(), "locked", "third field needs level 2")
 	return true
 
 func test_storage_and_cosmetics() -> bool:

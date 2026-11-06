@@ -1,52 +1,49 @@
-## Drives the real main scene headless: tap a plot, plant, harvest, open the barn.
+## Drives the real 3D main scene headless: create a farmer, buy a field, plant, harvest, open screens.
 extends TestCase
 
-func test_plant_and_harvest_through_ui() -> bool:
+func test_3d_core_loop_through_the_game_scene() -> bool:
 	var game: Node = tree.root.get_node("Game")
 	game.set_model(GameModel.new_game(game.now()))
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	tree.root.add_child(main)
 	await tree.process_frame
-	main._on_plot(0)
-	truthy(main.hud.sheet_open(), "seed picker opens on empty plot")
+	truthy(main.hud.sheet_open(), "character creator opens for a new player")
+	eq(str(game.model.s["avatar"]["model"]), "Rogue_Hooded", "default look picked")
 	main.hud.close_sheet()
-	main.start_planting("wheat")
-	main._on_plot(0)
-	eq(game.model.s["plots"][0]["crop"], "wheat", "planted via planting mode")
+	eq(game.model.s["plots"].size(), 0, "no land yet")
+	main.buy_field()
+	eq(game.model.s["plots"].size(), 6, "bought the first field")
+	await tree.process_frame
+	main.plot_action(0)
+	truthy(main.hud.sheet_open(), "first plant asks for a seed")
+	main.choose_seed("wheat", 0)
+	eq(game.model.s["plots"][0]["crop"], "wheat", "planted wheat")
+	main.plot_action(1)
+	eq(game.model.s["plots"][1]["crop"], "wheat", "re-plants the chosen seed")
 	game.model.s["plots"][0]["ready_at"] = 0.0
-	main._on_plot(0)
+	main.plot_action(0)
 	eq(game.model.s["plots"][0]["crop"], "", "harvested")
 	eq(game.model.count("wheat"), 6, "wheat in barn")
+	main.player.global_position = main.world.plot_pos(1)
+	await tree.process_frame
+	await tree.process_frame
+	truthy(main.hud.action_btn.text.contains("Wheat"), "standing on a plot offers its action: " + main.hud.action_btn.text)
 	for screen in ["barn", "shop", "settings", "market", "orders", "friends", "trophy", "event"]:
 		main._on_nav(screen)
 		truthy(main.hud.sheet_open(), screen + " opens")
-	main._on_nav("inn")
+	main.show_inn()
 	truthy(main.inn.visible, "inn view opens")
-	game.model.tick(game.now())
-	game.model.add_items({"carrot_stew": 1})
-	main.inn.refresh()
-	eq(game.model.serve_guest(0), "", "serve tutorial guest")
-	main._on_nav("inn")
-	truthy(not main.inn.visible, "back to farm")
-	game.model.s["coins"] = 1000
-	game.model.s["level"] = 4
-	game.model.tick(game.now())
-	eq(game.model.build("mill"), "", "build mill")
-	main._on_building("mill")
-	truthy(main.hud.sheet_open(), "mill sheet opens")
+	main.show_farm()
 	game.model.s["level"] = 10
 	game.model.s["coins"] = 5000
-	eq(game.model.build("coop"), "", "build coop")
+	main.build_here("coop")
+	truthy(game.model.owns_building("coop"), "built the coop in the world")
 	eq(game.model.buy_animal("coop", game.now()), "", "adopt hen")
-	await tree.process_frame
-	main._on_building("coop")
+	main.open_building("coop")
 	truthy(main.hud.sheet_open(), "coop sheet opens")
-	Screens.shop(main, "farm")
-	Screens.shop(main, "style")
-	Screens.market(main, "online")
-	Screens.avatar_editor(main)
+	main.talk_to("merchant", "market")
+	Screens.character_creator(main)
 	Screens.cast(main)
-	truthy(main.hud.sheet_open(), "cast opens")
 	main.hud.close_sheet()
 	main.queue_free()
 	await tree.process_frame

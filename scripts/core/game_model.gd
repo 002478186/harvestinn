@@ -14,21 +14,16 @@ func _init(state: Dictionary = {}) -> void:
 
 static func new_game(now: float) -> GameModel:
 	var eco := GameData.economy()
-	var cols := int(eco["plots"]["start_cols"])
-	var rows := int(eco["plots"]["start_rows"])
 	var m := GameModel.new({
 		"version": SaveCodec.VERSION,
 		"created": now, "last_seen": now,
 		"coins": int(eco["start"]["coins"]), "gems": int(eco["start"]["gems"]),
 		"xp": 0, "level": 1, "reputation": 0,
 		"inv": eco["start"]["items"].duplicate(),
-		"cols": cols, "rows": rows, "land": 0,
-		"plots": [],
+		"parcels": 0, "plots": [],
 		"storage": {"silo": 0, "barn": 0},
 		"stats": {},
 	})
-	for i in cols * rows:
-		m.s["plots"].append(_empty_plot())
 	SaveCodec.fill_defaults(m.s)
 	return m
 
@@ -641,30 +636,26 @@ func upgrade_storage(kind: String) -> String:
 	event.emit("storage", {"kind": kind})
 	return ""
 
-func next_land() -> Dictionary:
-	var ex: Array = GameData.economy()["land_expansions"]
-	return ex[int(s["land"])] if int(s["land"]) < ex.size() else {}
+static func plots_per_parcel() -> int:
+	var p: Dictionary = GameData.economy()["parcels"]
+	return int(p["cols"]) * int(p["rows"])
 
-## Grows the plot grid; existing crops keep their (column, row).
-func buy_land() -> String:
-	var ex := next_land()
-	if ex.is_empty(): return "max_level"
-	if not is_unlocked(ex["unlock_level"]): return "locked"
-	if not spend(int(ex["cost"])): return "no_coins"
-	var old_cols := int(s["cols"])
-	var old: Array = s["plots"]
-	var cols := int(ex["cols"])
-	var rows := int(ex["rows"])
-	var plots := []
-	for i in cols * rows:
-		plots.append(_empty_plot())
-	for i in old.size():
-		plots[(i / old_cols) * cols + i % old_cols] = old[i]
-	s["plots"] = plots
-	s["cols"] = cols
-	s["rows"] = rows
-	s["land"] = int(s["land"]) + 1
-	event.emit("land", {})
+## The next field for sale, or {} when all are owned.
+func next_parcel() -> Dictionary:
+	var list: Array = GameData.economy()["parcels"]["list"]
+	return list[int(s["parcels"])] if int(s["parcels"]) < list.size() else {}
+
+## Buys the next field: adds its plots (each parcel owns a fixed range of plot indices).
+func buy_parcel() -> String:
+	var p := next_parcel()
+	if p.is_empty(): return "max_level"
+	if not is_unlocked(p["unlock_level"]): return "locked"
+	if not spend(int(p["cost"])): return "no_coins"
+	for i in plots_per_parcel():
+		s["plots"].append(_empty_plot())
+	s["parcels"] = int(s["parcels"]) + 1
+	stat("parcels")
+	event.emit("land", {"parcel": int(s["parcels"]) - 1})
 	return ""
 
 ## Buys an outfit/hat/furniture, or a decoration placed at tile (x, y).

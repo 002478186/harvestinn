@@ -8,7 +8,7 @@ config/description="A cozy farm-to-table inn game with player trading."
 config/version="0.1.0"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://branding/icon_256.png"
-config/features=PackedStringArray("4.7", "GL Compatibility")
+config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/bg_color=Color(0.98, 0.94, 0.84, 1)
 boot_splash/show_image=true
 boot_splash/image="res://branding/splash/splash_portrait.png"
@@ -38,8 +38,8 @@ pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
 textures/canvas_textures/default_texture_filter=1
 environment/defaults/default_clear_color=Color(0.62, 0.82, 0.45, 1)
 textures/vram_compression/import_etc2_astc=true

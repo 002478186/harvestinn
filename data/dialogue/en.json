@@ -66,11 +66,12 @@
   "g_ash_served": "Steam rises like a sigh / the spoon, a small sun / I'll be back.",
   "g_pur_arrive": "Oh, what a lovely inn! Is that blanket hand-made?",
   "g_pur_served": "Delightful, dear. I'm knitting you a tea cosy.",
-  "tut_welcome": "Welcome to the Harvest Inn! I'm Marigold. The fields are yours and the kitchen is Basil's. Let's get you started.",
-  "tut_plant": "First, tap an empty plot of soil and plant some wheat. It only takes a minute to grow!",
-  "tut_cook": "While that grows, come into the inn! Tap the Inn button, then the kitchen, and cook a Carrot Stew. You already have the carrots.",
-  "tut_harvest": "Your wheat is ready when it turns golden. Tap it to harvest!",
-  "tut_serve": "A guest has arrived! Open the Inn and serve them the stew. Watch those coins fly.",
-  "tut_sell": "Psst, over here! Tap Market and sell me anything. I pay fair prices that change every day.",
-  "tut_done": "That's the whole recipe: grow, cook, serve, sell. Here's a little gift to start. Welcome home, {name}!"
+  "tut_welcome": "Welcome to the valley! I'm Marigold, and this old inn is ours. Use the joystick on the left to walk around. Let's make you a farmer.",
+  "tut_plant": "Lovely soil! Stand on a plot and tap Plant. Wheat grows in a minute, and you can keep tapping plots to plant more.",
+  "tut_cook": "While it grows, come to the inn: talk to Basil by the kitchen and cook a Carrot Stew. You already have the carrots!",
+  "tut_harvest": "Your wheat is golden and glowing: walk to it and tap Harvest!",
+  "tut_serve": "A guest is waiting! Walk into the inn and serve them that stew. Listen to those coins!",
+  "tut_sell": "Psst! Over here at my market stall, west of the square. Come sell me something; prices change every day.",
+  "tut_done": "That's the farming life: buy land, grow, cook, serve, sell. Here's a little gift. Welcome home, {name}!",
+  "tut_buy": "Every farmer needs land. Walk down the lane to the FOR SALE field and tap the green button to buy it for 20 coins."
 }

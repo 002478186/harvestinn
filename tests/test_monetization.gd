@@ -10,7 +10,7 @@ func test_off_by_default_and_game_never_needs_it() -> bool:
 	return true
 
 func test_rewards_when_enabled() -> bool:
-	var m := GameModel.new_game(0.0)
+	var m := new_farm(0.0)
 	m.plant(0, "carrot", 0.0)
 	eq(m.ad_finish_plot(0, 0.0), "", "ad finishes timer")
 	eq(m.harvest(0, 0.0), "", "harvest now")

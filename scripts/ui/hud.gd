@@ -84,46 +84,56 @@ func _pill(parent: Control, ic: Texture2D, target: String) -> Array:
 	_targets[target] = r
 	return [l, h]
 
+var joystick: Control
+var action_btn: Button
+
+## Joystick (left), context action (bottom right). The farm is walked, not menu-driven.
 func _build_bottom(safe: Vector2) -> void:
-	var bar := HBoxContainer.new()
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_bottom = -safe.y
-	bar.offset_top = -safe.y - 112
-	bar.offset_left = 12
-	bar.offset_right = -12
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", 8)
-	root.add_child(bar)
-	for item in [["shop", "Shop"], ["barn", "Barn"], ["inn", "Inn"], ["market", "Market"], ["friends", "Friends"], ["settings", "Settings"]]:
-		var b := UI.button("", func(): nav.emit(item[0]), UI.WOOD, UI.icon(item[0]))
-		b.tooltip_text = item[1]
-		b.custom_minimum_size = Vector2(104, 104)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.name = item[0]
-		b.add_theme_constant_override("icon_max_width", 64)
-		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		bar.add_child(b)
-		_targets[item[0]] = b
+	joystick = preload("res://scripts/ui/joystick.gd").new()
+	root.add_child(joystick)
+	root.move_child(joystick, 0)
+	action_btn = UI.button("", func(): nav.emit("action"), UI.MEADOW)
+	action_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	action_btn.offset_left = -430
+	action_btn.offset_right = -24
+	action_btn.offset_top = -safe.y - 200
+	action_btn.offset_bottom = -safe.y - 60
+	action_btn.add_theme_font_size_override("font_size", 34)
+	action_btn.add_theme_constant_override("icon_max_width", 72)
+	action_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	action_btn.visible = false
+	action_btn.button_down.connect(func(): nav.emit("sweep_on"))
+	action_btn.button_up.connect(func(): nav.emit("sweep_off"))
+	root.add_child(action_btn)
+	_targets["action"] = action_btn
+
+func set_action(label: String, icon_name: String) -> void:
+	action_btn.visible = label != ""
+	action_btn.text = label
+	action_btn.icon = UI.icon(icon_name) if icon_name != "" else null
+	if action_btn.visible:
+		action_btn.pivot_offset = action_btn.size / 2
+		var tw := action_btn.create_tween()
+		tw.tween_property(action_btn, "scale", Vector2(1.08, 1.08), 0.08)
+		tw.tween_property(action_btn, "scale", Vector2.ONE, 0.12)
 
 ## Right-hand column for secondary screens (orders, daily reward, achievements).
 var side := VBoxContainer.new()
 
 func _build_side(safe: Vector2) -> void:
-	side.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	side.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	side.offset_left = -112
 	side.offset_right = -12
-	side.offset_top = -40
+	side.offset_top = safe.x + 100
+	side.add_theme_constant_override("separation", 8)
 	root.add_child(side)
-	add_side_button("orders", "Orders")
-	add_side_button("gift", "Daily reward")
-	add_side_button("trophy", "Achievements")
-	if not GameModel.active_events(Game.now()).is_empty():
-		add_side_button("event", "Seasonal event")
+	for b in [["barn", "Barn"], ["shop", "Shop"], ["menu", "More"]]:
+		add_side_button(b[0], b[1])
 
 func add_side_button(id: String, tip: String) -> void:
-	var b := UI.button("", func(): nav.emit(id), UI.CREAM, UI.icon("xp" if id == "event" else id))
+	var b := UI.button("", func(): nav.emit(id), Color(1, 0.97, 0.88, 0.92), UI.icon({"event": "xp", "menu": "settings"}.get(id, id)))
 	b.tooltip_text = tip
-	b.custom_minimum_size = Vector2(96, 96)
+	b.custom_minimum_size = Vector2(88, 88)
 	b.add_theme_constant_override("icon_max_width", 60)
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	side.add_child(b)
