@@ -47,6 +47,7 @@ static func theme() -> Theme:
 		t.set_stylebox(st, "Button", sb)
 	t.set_font("font", "Button", font(600))
 	t.set_font_size("font_size", "Button", 32)
+	t.set_constant("icon_max_width", "Button", 52)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		t.set_color(c, "Button", Color.WHITE)
 	t.set_color("font_disabled_color", "Button", Color("#F4EEE8"))

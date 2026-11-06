@@ -34,6 +34,13 @@ func test_plant_and_harvest_through_ui() -> bool:
 	eq(game.model.build("mill"), "", "build mill")
 	main._on_building("mill")
 	truthy(main.hud.sheet_open(), "mill sheet opens")
+	game.model.s["level"] = 10
+	game.model.s["coins"] = 5000
+	eq(game.model.build("coop"), "", "build coop")
+	eq(game.model.buy_animal("coop", game.now()), "", "adopt hen")
+	await tree.process_frame
+	main._on_building("coop")
+	truthy(main.hud.sheet_open(), "coop sheet opens")
 	Screens.shop(main, "farm")
 	Screens.shop(main, "style")
 	Screens.market(main, "online")

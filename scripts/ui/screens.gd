@@ -18,7 +18,9 @@ const ERRORS := {
 	"rate_limited": "Slow down a little and try again", "unknown_code": "No farmer has that code",
 	"own_code": "That's your own code", "not_friends": "You need to be friends first", "already_helped": "You already helped this friend today",
 	"help_limit": "You've helped 5 friends today: come back tomorrow", "not_pending": "That offer was already answered",
-	"empty_offer": "Add something to give", "banned": "This account can't trade", "server_error": "The server had a hiccup, try again",
+	"empty_offer": "Add something to give", "housing_full": "No room: upgrade the building",
+	"no_feed": "You need Animal Feed: make it at the Windmill", "not_hungry": "Already fed",
+	"pet_cooldown": "They loved that! Pet again in a little while", "banned": "This account can't trade", "server_error": "The server had a hiccup, try again",
 }
 
 static func open(main, screen: String) -> void:
@@ -36,6 +38,7 @@ static func open_building(main, id: String) -> void:
 	var b: Dictionary = GameData.buildings().get(id, {})
 	if id == "inn": open(main, "inn")
 	elif b.get("kind", "") == "workshop": workshop(main, id)
+	elif b.get("kind", "") == "housing": animals(main, id)
 	else: main.hud.toast(tr_(b.get("name", id)))
 
 static func tr_(s: String) -> String:
@@ -522,3 +525,76 @@ static func cloud_conflict(main, server: Dictionary) -> void:
 		v.add_child(UI.button(tr_("Cloud: %s") % CloudSync.summary(server.get("data", {})), func():
 			main.hud.close_popup(v)
 			Net.adopt(server), UI.SKY)))
+
+# ------------------------------------------------------------------ animals
+
+static func animals(main, h: String) -> void:
+	var m: GameModel = Game.model
+	var b: Dictionary = GameData.buildings()[h]
+	var kind: String = b["animal"]
+	var info: Dictionary = GameData.animals()[kind]
+	var now := Game.now()
+	var body: VBoxContainer = main.hud.sheet("%s · %d/%d" % [tr_(b["name"]), m.s["animals"][h].size(), m.housing_capacity(h)], 0.85)
+	var redo := func(): animals(main, h)
+	var act := func(err: String, sfx: String):
+		if err != "": main.say_error(err)
+		else: Sfx.play(sfx); redo.call()
+	var vet := HBoxContainer.new()
+	vet.add_child(Portrait.make("vet", 100))
+	var feed_name := ", ".join(info["feed"].keys().map(func(k): return "%d %s" % [int(info["feed"][k]), tr_(GameData.item_name(k))]))
+	var tip := UI.label(tr_("Each %s eats %s and gives goods every %s. Happy animals (75+) give a bonus!") % [tr_(info["name"]), feed_name, UI.fmt_time(info["cycle_seconds"])], 22)
+	tip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vet.add_child(tip)
+	body.add_child(vet)
+	var top := HBoxContainer.new()
+	var tend := UI.button(tr_("Tend all"), func():
+		var r := m.tend_all(h, Game.now())
+		if r["collected"] + r["fed"] == 0 and r["error"] != "": main.say_error(r["error"])
+		else:
+			Sfx.play("collect")
+			main.hud.toast(tr_("Collected %d · fed %d") % [r["collected"], r["fed"]])
+			redo.call(), UI.MEADOW)
+	tend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(tend)
+	top.add_child(UI.label(tr_("Feed: %d") % m.count("animal_feed"), 24, UI.WOOD_DARK, 700, false))
+	body.add_child(top)
+	for i in m.s["animals"][h].size():
+		var st := m.animal_state(h, i, now)
+		var hap := m.happiness(h, i, now)
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UI.box(Color.WHITE, 20, 3))
+		var line := HBoxContainer.new()
+		p.add_child(line)
+		var pic := UI.icon_rect(UI.tex("res://assets/art/animals/%s.svg" % kind), 96)
+		line.add_child(pic)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 2)
+		var status: String = {"hungry": tr_("Hungry"), "producing": tr_("Making goods: %s") % UI.fmt_time(float(m.s["animals"][h][i]["cycle_end"]) - now), "ready": tr_("Goods ready!")}[st]
+		v.add_child(UI.label("%s %d · %s" % [tr_(info["name"]), i + 1, status], 24, UI.RED if st == "ready" else UI.INK, 600))
+		var bar := ProgressBar.new()
+		bar.value = hap
+		bar.show_percentage = false
+		bar.custom_minimum_size.y = 22
+		bar.tooltip_text = tr_("Happiness %d") % hap
+		v.add_child(bar)
+		v.add_child(UI.label(tr_("Happiness %d%s") % [hap, tr_(" · happy bonus!") if hap >= 75 else ""], 20, UI.WOOD_DARK, 700, false))
+		line.add_child(v)
+		var btns := VBoxContainer.new()
+		if st == "ready":
+			btns.add_child(UI.button(tr_("Collect"), func(): act.call(m.collect_animal(h, i, Game.now()), "collect"), UI.MEADOW))
+		elif st == "hungry":
+			btns.add_child(UI.button(tr_("Feed"), func(): act.call(m.feed_animal(h, i, Game.now()), "plant"), UI.WHEAT))
+		btns.add_child(UI.button(tr_("Pet"), func():
+			act.call(m.pet_animal(h, i, Game.now()), "pet")
+			main.hud.toast(tr_("So happy!")), UI.SKY, UI.icon("heart_hand")))
+		line.add_child(btns)
+		body.add_child(p)
+	var ok := m.is_unlocked(info["unlock_level"])
+	if m.s["animals"][h].size() < m.housing_capacity(h):
+		body.add_child(row(UI.tex("res://assets/art/animals/%s.svg" % kind), tr_("Adopt a %s") % tr_(info["name"]), tr_("%d coins") % int(info["cost"]) if ok else tr_("Unlocks at level %d") % int(info["unlock_level"]),
+			tr_("Adopt") if ok else LOCK, func(): act.call(m.buy_animal(h, Game.now()), "pet"), ok, UI.MEADOW))
+	var levels: Array = b["levels"]
+	var next := m.building_level(h) + 1
+	if next < levels.size():
+		body.add_child(UI.button(tr_("Bigger home: %d animals · %d coins") % [int(levels[next]["capacity"]), int(levels[next]["cost"])], func(): act.call(m.upgrade_building(h), "build"), UI.WOOD_DARK, UI.icon("coin")))

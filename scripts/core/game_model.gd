@@ -216,6 +216,10 @@ func offline_summary(since: float, now: float) -> Dictionary:
 		for j in s["buildings"][b]["queue"]:
 			if float(j["end"]) > since and float(j["end"]) <= now:
 				out["jobs"] += 1
+	out["animals"] = 0
+	for h in s["animals"]:
+		for a in s["animals"][h]:
+			if float(a["cycle_end"]) > since and float(a["cycle_end"]) <= now: out["animals"] += 1
 	tick(now)
 	out["guests"] = inn()["guests"].filter(func(g): return float(g["arrived"]) > since and float(g["arrived"]) < now).size()
 	out["room_coins"] = 0
@@ -370,9 +374,6 @@ func speed_up_job(bid: String, now: float) -> String:
 		return ""
 	return "not_needed"
 
-## Placeholder until livestock (milestone 11).
-func animals_ready(_housing: String, _now: float) -> int:
-	return 0
 
 # ------------------------------------------------------------ the inn
 
@@ -721,3 +722,108 @@ func apply_help(plot: int, now: float) -> void:
 	if plot >= 0 and plot < s["plots"].size() and s["plots"][plot]["crop"] != "":
 		s["plots"][plot]["ready_at"] = maxf(now, float(s["plots"][plot]["ready_at"]) - 300.0)
 		event.emit("plot", {"index": plot})
+
+# ------------------------------------------------------------ livestock
+# Animals are cared for, never harmed: feed -> timed production -> collect.
+
+func housing_capacity(h: String) -> int:
+	return int(GameData.buildings()[h]["levels"][building_level(h)]["capacity"]) if owns_building(h) else 0
+
+func buy_animal(h: String, now: float) -> String:
+	if not owns_building(h): return "not_owned"
+	var kind: String = GameData.buildings()[h]["animal"]
+	var a: Dictionary = GameData.animals()[kind]
+	if not is_unlocked(a["unlock_level"]): return "locked"
+	if s["animals"][h].size() >= housing_capacity(h): return "housing_full"
+	if not spend(int(a["cost"])): return "no_coins"
+	s["animals"][h].append({"type": kind, "happiness": int(GameData.animal_rules()["start"]), "hap_t": now,
+		"cycle_end": 0.0, "cycles": 0, "last_pet": 0.0})
+	stat("animals")
+	event.emit("animal", {"housing": h})
+	return ""
+
+## Current happiness with decay applied (stored lazily).
+func happiness(h: String, i: int, now: float) -> int:
+	var a: Dictionary = s["animals"][h][i]
+	var hours := maxf(0.0, (now - float(a["hap_t"])) / 3600.0)
+	var v := clampi(int(a["happiness"]) - int(floor(hours * float(GameData.animal_rules()["decay_per_hour"]))), 0, 100)
+	if hours >= 1.0:
+		a["happiness"] = v
+		a["hap_t"] = now
+	return v
+
+func _add_happiness(h: String, i: int, n: int, now: float) -> void:
+	var a: Dictionary = s["animals"][h][i]
+	a["happiness"] = clampi(happiness(h, i, now) + n, 0, 100)
+	a["hap_t"] = now
+
+func animal_state(h: String, i: int, now: float) -> String:
+	var a: Dictionary = s["animals"][h][i]
+	if float(a["cycle_end"]) == 0.0: return "hungry"
+	return "ready" if float(a["cycle_end"]) <= now else "producing"
+
+func feed_animal(h: String, i: int, now: float) -> String:
+	if animal_state(h, i, now) != "hungry": return "not_hungry"
+	var kind: Dictionary = GameData.animals()[s["animals"][h][i]["type"]]
+	if not remove_items(kind["feed"]): return "no_feed"
+	s["animals"][h][i]["cycle_end"] = now + float(kind["cycle_seconds"])
+	_add_happiness(h, i, int(GameData.animal_rules()["per_feed"]), now)
+	stat("animals_fed")
+	event.emit("animal", {"housing": h})
+	return ""
+
+func pet_animal(h: String, i: int, now: float) -> String:
+	var a: Dictionary = s["animals"][h][i]
+	if float(a["last_pet"]) > 0.0 and now - float(a["last_pet"]) < float(GameData.animal_rules()["pet_cooldown_seconds"]): return "pet_cooldown"
+	a["last_pet"] = now
+	_add_happiness(h, i, int(GameData.animal_rules()["per_pet"]), now)
+	stat("pets")
+	event.emit("animal", {"housing": h, "pet": i})
+	return ""
+
+## What one finished cycle gives: main product (+1 when happy) plus "every N cycles" extras.
+func animal_products(h: String, i: int, now: float) -> Dictionary:
+	var a: Dictionary = s["animals"][h][i]
+	var kind: Dictionary = GameData.animals()[a["type"]]
+	var out := {}
+	var first := true
+	for p in kind["products"]:
+		var every := int(p.get("every", 1))
+		if (int(a["cycles"]) + 1) % every != 0: continue
+		var q := int(p["qty"])
+		if first and happiness(h, i, now) >= int(GameData.animal_rules()["bonus_happiness"]): q += 1
+		first = false
+		out[p["item"]] = q
+	return out
+
+func collect_animal(h: String, i: int, now: float) -> String:
+	if animal_state(h, i, now) != "ready": return "not_ready"
+	var got := animal_products(h, i, now)
+	if not add_items(got): return "barn_full"
+	var a: Dictionary = s["animals"][h][i]
+	a["cycles"] = int(a["cycles"]) + 1
+	a["cycle_end"] = 0.0
+	add_xp(int(GameData.animals()[a["type"]]["xp"]))
+	stat("animal_goods")
+	event.emit("collect", {"housing": h, "items": got})
+	return ""
+
+func animals_ready(h: String, now: float) -> int:
+	var n := 0
+	for i in s["animals"].get(h, []).size():
+		if animal_state(h, i, now) == "ready": n += 1
+	return n
+
+## One tap for the whole pen: collect what's ready, then feed everyone hungry.
+func tend_all(h: String, now: float) -> Dictionary:
+	var r := {"collected": 0, "fed": 0, "error": ""}
+	for i in s["animals"][h].size():
+		if animal_state(h, i, now) == "ready":
+			var e := collect_animal(h, i, now)
+			if e == "": r["collected"] += 1
+			else: r["error"] = e
+		if animal_state(h, i, now) == "hungry":
+			var e2 := feed_animal(h, i, now)
+			if e2 == "": r["fed"] += 1
+			elif r["error"] == "": r["error"] = e2
+	return r

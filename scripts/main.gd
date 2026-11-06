@@ -7,6 +7,8 @@ var inn: Control
 var planting := ""            # crop id while in planting mode
 
 func _ready() -> void:
+	if "--demo" in OS.get_cmdline_user_args():
+		Game.set_model(demo_farm(Game.now()))
 	farm = preload("res://scripts/farm/farm_view.gd").new()
 	add_child(farm)
 	var inn_layer := CanvasLayer.new()
@@ -90,3 +92,26 @@ func show_farm() -> void:
 	inn.visible = false
 	farm.set_process_unhandled_input(true)
 	Sfx.play("door")
+
+## Dev aid (-- --demo): a mid-game farm for screenshots and manual testing.
+static func demo_farm(now: float) -> GameModel:
+	var m := GameModel.new_game(now)
+	m.s["level"] = 22
+	m.s["coins"] = 200_000
+	m.s["gems"] = 50
+	m.skip_tutorial()
+	for i in 5: m.buy_land()
+	for b in ["mill", "bakery", "jam_kitchen", "coop", "barn_stall", "goat_pen", "sheep_pen", "dairy"]:
+		m.build(b)
+	m.add_items({"animal_feed": 40, "wheat": 30, "carrot": 20, "potato": 20, "tomato": 12, "strawberry": 12}, true)
+	for h in ["coop", "barn_stall", "goat_pen", "sheep_pen"]:
+		for k in 2:
+			m.buy_animal(h, now)
+			m.feed_animal(h, k, now - (3000.0 if k == 0 else 0.0))
+	var crops := ["wheat", "carrot", "potato", "tomato", "corn", "strawberry", "sunflower", "pumpkin"]
+	for i in m.s["plots"].size():
+		m.plant(i, crops[i % crops.size()], now - 400.0 * (i % 4))
+	m.queue_recipe("mill", "flour", now)
+	m.s["coins"] = 200_000
+	m.s["name"] = "Hazel"
+	return m

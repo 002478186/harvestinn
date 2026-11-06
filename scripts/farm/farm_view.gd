@@ -79,6 +79,10 @@ func rebuild() -> void:
 	for b in m.s.get("buildings", {}):
 		if b == "kitchen": continue
 		_add_object(b, "res://assets/art/buildings/%s.svg" % b, 2)
+	for h in m.s["animals"]:
+		var t := object_tile(h)
+		for i in m.s["animals"][h].size():
+			_add_critter(m.s["animals"][h][i]["type"], (Vector2(t) + Vector2(0.4 + 0.5 * (i % 3), 2.35 + 0.35 * (i / 3))) * TILE, "animal:%s:%d" % [h, i])
 	for i in m.s.get("decor", []).size():
 		var d: Dictionary = m.s["decor"][i]
 		_add_object("decor:%d" % i, "res://assets/art/decor/%s.svg" % d["id"], 1)
@@ -96,6 +100,22 @@ func _add_object(id: String, tex_path: String, tiles: int) -> void:
 	_objects[id] = spr
 	if Game.model.s.get("buildings", {}).has(id) or id == "inn":
 		_badge(spr, id)
+
+## Small wandering animal sprite in front of its home (tap opens the pen).
+func _add_critter(kind: String, at: Vector2, id: String) -> void:
+	var spr := Sprite2D.new()
+	spr.texture = UI.tex("res://assets/art/animals/%s.svg" % kind)
+	spr.scale = Vector2.ONE * 0.55
+	spr.position = at
+	add_child(spr)
+	_objects[id] = spr
+	spr.set_meta("tiles", 0)
+	var tw := spr.create_tween().set_loops()
+	var dx := randf_range(20.0, 50.0)
+	tw.tween_property(spr, "position:x", at.x + dx, randf_range(1.5, 3.0)).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(spr, "scale:x", -0.55, 0.01)
+	tw.tween_property(spr, "position:x", at.x - dx, randf_range(1.5, 3.0)).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(spr, "scale:x", 0.55, 0.01)
 
 ## A small "ready" bubble over buildings with finished work.
 func _badge(spr: Sprite2D, id: String) -> void:
@@ -131,7 +151,7 @@ func plot_at(world: Vector2) -> int:
 func object_at(world: Vector2) -> String:
 	for id in _objects:
 		var spr: Sprite2D = _objects[id]
-		var half: float = float(spr.get_meta("tiles")) * TILE / 2.0
+		var half: float = maxf(float(spr.get_meta("tiles")), 0.5) * TILE / 2.0
 		if Rect2(spr.position - Vector2(half, half), Vector2(half, half) * 2).has_point(world):
 			return id
 	return ""
@@ -152,6 +172,7 @@ func _refresh_plots() -> void:
 		crop.texture = UI.tex("res://assets/art/crops/%s.svg" % stage)
 		lbl.text = "" if prog >= 1.0 else UI.fmt_time(m.plot_remaining(i, now))
 	for id in _objects:
+		if id.begins_with("animal:"): continue
 		var r: Node = _objects[id].get_node_or_null("Ready")
 		if r:
 			r.visible = m.building_has_ready(id, now)
@@ -231,7 +252,7 @@ func _process(_dt: float) -> void:
 	if _press and not _press.get("moved", true) and _dragging_obj == "" and _touches.size() == 1:
 		if Time.get_ticks_msec() - int(_press["time"]) > LONG_PRESS * 1000:
 			var id := object_at(_to_world(_press["pos"]))
-			if id != "":
+			if id != "" and not id.begins_with("animal:"):
 				_dragging_obj = id
 				_objects[id].modulate.a = 0.7
 				Sfx.play("pickup")
@@ -255,7 +276,7 @@ func _occupied(except: String) -> Array:
 	var rows := int(Game.model.s["rows"])
 	out.append([PLOT_ORIGIN.x, PLOT_ORIGIN.y, cols, rows])
 	for id in _objects:
-		if id == except: continue
+		if id == except or id.begins_with("animal:"): continue
 		var t := object_tile(id)
 		var n := int(_objects[id].get_meta("tiles"))
 		out.append([t.x, t.y, n, n])
@@ -267,7 +288,9 @@ func _tap(world: Vector2) -> void:
 		plot_tapped.emit(i)
 		return
 	var id := object_at(world)
-	if id != "" and not id.begins_with("decor:"):
+	if id.begins_with("animal:"):
+		building_tapped.emit(id.split(":")[1])
+	elif id != "" and not id.begins_with("decor:"):
 		building_tapped.emit(id)
 
 func _to_world(screen: Vector2) -> Vector2:
