@@ -934,3 +934,26 @@ func claim_event(id: String, now: float) -> String:
 	stat("events")
 	event.emit("event", {"id": id, "claimed": true})
 	return ""
+
+# ------------------------------------------------------------ monetization rewards (only after Ads/IAP say yes)
+
+## Rewarded ad: finish a crop timer for free.
+func ad_finish_plot(i: int, now: float) -> String:
+	if plot_remaining(i, now) <= 0.0: return "not_needed"
+	s["plots"][i]["ready_at"] = now
+	event.emit("plot", {"index": i})
+	return ""
+
+## Rewarded ad: deliver an order for double coins.
+func fulfill_delivery_doubled(i: int, now: float) -> String:
+	var bonus := int(s["deliveries"][i].get("coins", 0))
+	var err := fulfill_delivery(i, now)
+	if err == "": add_coins(bonus)
+	return err
+
+func grant_purchase(id: String, p: Dictionary) -> void:
+	if not s["flags"].has("purchases"): s["flags"]["purchases"] = []
+	s["flags"]["purchases"].append(id)
+	if p.get("remove_ads", false): s["flags"]["remove_ads"] = true
+	_grant(p)
+	event.emit("purchase", {"id": id})

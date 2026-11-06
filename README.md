@@ -45,6 +45,24 @@ the game runs fully offline and trading screens say "connect to trade".
 CI builds a debug Android APK on every push to `main` (Actions → artifacts).
 iOS and release builds: see [docs/BUILD.md](docs/BUILD.md).
 
+## Docs
+[Engine](docs/ENGINE_DECISION.md) · [Backend](docs/BACKEND_DECISION.md) · [Economy](docs/ECONOMY.md) ·
+[Branding](docs/BRANDING.md) · [Build](docs/BUILD.md) · [Privacy policy draft](docs/PRIVACY.md) · [Backend README](backend/README.md)
+
+## Monetization
+`AdsManager` (`scripts/autoload/ads.gd`) and `IAPManager` (`scripts/autoload/iap.gd`) are
+**mocks and off by default** (`data/monetization.json`). TODOs in each file explain
+how to wire AdMob, Google Play Billing and StoreKit. The game is fully playable without them.
+
+## Dev helpers
+`godot --path . -- --demo` loads a mid-game farm · `-- --screen=market` opens a screen ·
+`-- --shot=out.png` saves a screenshot and quits · `python3 tools/dev_backend.py` runs a local backend.
+Regenerate assets: `tools/gen_art.py`, `tools/gen_audio.py`, `tools/build_branding.py`.
+
+## Localization
+UI strings are English source text passed through Godot's `tr()`. Add a translation CSV/PO
+in Project Settings → Localization. Dialogue lives in `data/dialogue/<lang>.json`.
+
 ## Decisions made where the brief was open
 - **View:** top-down 2.5D (slight 3/4 perspective sprites) instead of true
   isometric. It keeps tap targets large and the grid math simple on phones.

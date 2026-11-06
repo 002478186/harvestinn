@@ -18,6 +18,10 @@ func _initialize() -> void:
 	files.sort()
 	for f in files:
 		var script: GDScript = load("res://tests/" + f)
+		if script == null or not script.can_instantiate():
+			failed += 1
+			push_error("FAIL %s: script does not compile" % f)
+			continue
 		var suite: TestCase = script.new()
 		suite.tree = self
 		for m in suite.get_method_list():

@@ -98,6 +98,10 @@ static func growing_plot(main, i: int) -> void:
 		var err := m.speed_up_plot(i, Game.now())
 		main.hud.close_popup(v)
 		if err != "": main.say_error(err), UI.SKY, UI.icon("gem")))
+	if Ads.can_show("speedup"):
+		v.add_child(UI.button(tr_("Watch an ad to finish"), func():
+			main.hud.close_popup(v)
+			if await Ads.show_rewarded("speedup"): m.ad_finish_plot(i, Game.now()), UI.WHEAT))
 	v.add_child(UI.button(tr_("Close"), func(): main.hud.close_popup(v), UI.WOOD_DARK))
 
 # ------------------------------------------------------------------ barn
@@ -342,7 +346,9 @@ static func shop(main, tab := "buildings") -> void:
 	var m: GameModel = Game.model
 	var body: VBoxContainer = main.hud.sheet(tr_("Shop"), 0.85)
 	var tabs := HBoxContainer.new()
-	for t in [["buildings", "Buildings"], ["farm", "Farm"], ["style", "Style"]]:
+	var tab_list := [["buildings", "Buildings"], ["farm", "Farm"], ["style", "Style"]]
+	if IAP.enabled: tab_list.append(["gems", "Gems"])
+	for t in tab_list:
 		var b := UI.button(tr_(t[1]), func(): shop(main, t[0]), UI.MEADOW if t[0] == tab else UI.WOOD_DARK)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tabs.add_child(b)
@@ -366,6 +372,16 @@ static func shop(main, tab := "buildings") -> void:
 
 static func shop_extra(main, body: VBoxContainer, tab: String) -> void:
 	var m: GameModel = Game.model
+	if tab == "gems":
+		body.add_child(UI.label(tr_("Totally optional: everything in HarvestInn can be earned by playing."), 22, UI.WOOD_DARK))
+		for pid in IAP.products():
+			var p: Dictionary = IAP.products()[pid]
+			var once: bool = p.get("once", false) and IAP.owned(pid)
+			body.add_child(row(UI.icon("gem"), tr_(p["name"]), "$%.2f" % float(p["price_usd"]), tr_("Owned") if once else tr_("Buy"), func():
+				var err: String = await IAP.purchase(pid)
+				if err != "": main.say_error(err)
+				else: Sfx.play("coins"); shop(main, "gems"), not once, UI.SKY))
+		return
 	var again := func(): shop(main, tab)
 	var act := func(err: String):
 		if err != "": main.say_error(err)
@@ -482,6 +498,10 @@ static func deliveries(main) -> void:
 		go.disabled = not m.has_items(d["items"])
 		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		r.add_child(go)
+		if Ads.can_show("double_order") and m.has_items(d["items"]):
+			r.add_child(UI.button(tr_("Ad: ×2"), func():
+				if await Ads.show_rewarded("double_order") and m.fulfill_delivery_doubled(i, Game.now()) == "": Sfx.play("coins")
+				deliveries(main), UI.WHEAT))
 		r.add_child(UI.button(tr_("Skip"), func(): m.skip_delivery(i, Game.now()); deliveries(main), UI.WOOD_DARK))
 		v.add_child(r)
 		body.add_child(p)

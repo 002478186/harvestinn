@@ -19,6 +19,8 @@ boot_splash/fullsize=true
 Game="*res://scripts/autoload/game.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
 Net="*res://scripts/autoload/net.gd"
+Ads="*res://scripts/autoload/ads.gd"
+IAP="*res://scripts/autoload/iap.gd"
 
 [display]
 

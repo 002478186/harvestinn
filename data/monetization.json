@@ -1,0 +1,16 @@
+{
+  "_doc": "Monetization is OFF by default; the game is fully playable without ads or purchases. Flip the flags only after wiring real SDKs (see scripts/autoload/ads.gd, iap.gd).",
+  "ads_enabled": false,
+  "iap_enabled": false,
+  "rewarded": {
+    "speedup": {"desc": "Watch an ad to finish this timer", "daily_limit": 10},
+    "double_order": {"desc": "Watch an ad to double this order's coins", "daily_limit": 5}
+  },
+  "products": {
+    "gems_small":   {"name": "Pouch of Gems",  "gems": 60,   "price_usd": 0.99},
+    "gems_medium":  {"name": "Chest of Gems",  "gems": 350,  "price_usd": 4.99},
+    "gems_large":   {"name": "Barrel of Gems", "gems": 800,  "price_usd": 9.99},
+    "starter_pack": {"name": "Starter Pack",   "gems": 100, "coins": 3000, "items": {"animal_feed": 20}, "price_usd": 2.99, "once": true},
+    "remove_ads":   {"name": "Remove Ads",     "remove_ads": true, "price_usd": 2.99, "once": true}
+  }
+}
