@@ -14,6 +14,7 @@ const ERRORS := {
 static func open(main, screen: String) -> void:
 	match screen:
 		"barn": barn(main)
+		"settings": settings(main)
 		_: main.hud.toast(tr_("Coming soon"))
 
 static func open_building(main, id: String) -> void:
@@ -118,3 +119,111 @@ static func welcome_back(main, w: Dictionary) -> void:
 		if not any:
 			v.add_child(UI.label(tr_("• The farm rested peacefully"), 26))
 		v.add_child(UI.button(tr_("Let's go!"), func(): main.hud.close_popup(v), UI.MEADOW)))
+
+# ------------------------------------------------------------------ dialogue
+
+## Shows character lines one after another as popups ({speaker, line} dicts).
+static func talk(main, lines: Array) -> void:
+	for l in lines:
+		main.hud.queue_popup(func():
+			var c: Dictionary = GameData.characters()[l["speaker"]]
+			var v: VBoxContainer = main.hud.popup(c["name"])
+			v.add_child(UI.label(tr_(c["role"]), 24, UI.WOOD_DARK, 600))
+			v.move_child(v.get_child(v.get_child_count() - 1), 0)
+			var por := Portrait.make(l["speaker"], 200)
+			v.add_child(por)
+			v.move_child(por, 0)
+			v.add_child(UI.label(Dialogue.text(l["line"], Game.model.s["name"]), 28))
+			v.add_child(UI.button(tr_("Continue"), func(): main.hud.close_popup(v), UI.MEADOW)))
+
+# ------------------------------------------------------------------ settings, avatar, cast
+
+static func settings(main) -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Settings"), 0.85)
+	body.add_child(UI.label(tr_("Sound"), 32, UI.RED, 600))
+	var sfx := CheckButton.new()
+	sfx.text = tr_("Sound effects")
+	sfx.button_pressed = Sfx.sfx_on
+	sfx.toggled.connect(func(on): Sfx.set_audio(on, Sfx.music_on))
+	body.add_child(sfx)
+	var mus := CheckButton.new()
+	mus.text = tr_("Music")
+	mus.button_pressed = Sfx.music_on
+	mus.toggled.connect(func(on): Sfx.set_audio(Sfx.sfx_on, on))
+	body.add_child(mus)
+	body.add_child(UI.button(tr_("My Farmer"), func(): avatar_editor(main), UI.MEADOW))
+	body.add_child(UI.button(tr_("Villagers"), func(): cast(main), UI.WOOD_DARK))
+	if not m.tutorial_step().is_empty():
+		body.add_child(UI.button(tr_("Skip tutorial"), func(): m.skip_tutorial(); main.hud.close_sheet(), UI.WOOD_DARK))
+	body.add_child(UI.label(tr_("HarvestInn v%s · Credits in CREDITS.md") % ProjectSettings.get_setting("application/config/version"), 20, UI.WOOD_DARK))
+
+static func avatar_editor(main) -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("My Farmer"), 0.9)
+	var a: Dictionary = m.s["avatar"]
+	var preview := CenterContainer.new()
+	preview.add_child(Avatar.make(a, 260))
+	body.add_child(preview)
+	var name_row := HBoxContainer.new()
+	var name_edit := LineEdit.new()
+	name_edit.text = m.s["name"]
+	name_edit.placeholder_text = tr_("Your name")
+	name_edit.max_length = 16
+	name_edit.custom_minimum_size.y = UI.MIN_TAP
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name_edit)
+	name_row.add_child(UI.button(tr_("Save"), func():
+		var err := m.set_player_name(name_edit.text)
+		if err == "name_short": main.say_error("Name is too short")
+		elif err == "name_blocked": main.say_error("Please choose a kinder name")
+		else: main.hud.toast(tr_("Nice to meet you, %s!") % m.s["name"]), UI.MEADOW))
+	body.add_child(name_row)
+	var redo := func(): avatar_editor(main)
+	_choice_row(body, tr_("Skin"), Avatar.SKINS.size(), func(i): return Color(Avatar.SKINS[i]), func(i): m.set_avatar("skin", i); redo.call())
+	_choice_row(body, tr_("Hair colour"), Avatar.HAIR_COLORS.size(), func(i): return Color(Avatar.HAIR_COLORS[i]), func(i): m.set_avatar("hair_color", i); redo.call())
+	var styles := HBoxContainer.new()
+	for st in Avatar.HAIR_STYLES:
+		styles.add_child(UI.button(tr_(st.capitalize()), func(): m.set_avatar("hair", st); redo.call(), UI.MEADOW if a["hair"] == st else UI.WOOD_DARK))
+	body.add_child(styles)
+	for slot in ["outfit", "hat"]:
+		body.add_child(UI.label(tr_(slot.capitalize()), 28, UI.RED, 600))
+		var g := GridContainer.new()
+		g.columns = 2
+		for cid in GameData.cosmetics():
+			var c: Dictionary = GameData.cosmetics()[cid]
+			if c["slot"] != slot: continue
+			var owned := m.owns(cid)
+			var b := UI.button(tr_(c["name"]) if owned else "🔒 " + tr_(c["name"]), func():
+				if m.set_avatar(slot, cid) != "": main.say_error("Buy it in the Shop first")
+				else: redo.call(), UI.MEADOW if a[slot] == cid else (UI.WOOD_DARK if owned else Color("#B8A89A")))
+			b.add_theme_font_size_override("font_size", 22)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			g.add_child(b)
+		body.add_child(g)
+
+static func _choice_row(body: VBoxContainer, title: String, n: int, color_of: Callable, pick: Callable) -> void:
+	body.add_child(UI.label(title, 28, UI.RED, 600))
+	var h := HBoxContainer.new()
+	for i in n:
+		var b := UI.button("", func(): pick.call(i), color_of.call(i))
+		h.add_child(b)
+	body.add_child(h)
+
+static func cast(main) -> void:
+	var body: VBoxContainer = main.hud.sheet(tr_("Villagers & Guests"), 0.9)
+	for cid in GameData.characters():
+		var c: Dictionary = GameData.characters()[cid]
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UI.box(Color.WHITE, 20, 3))
+		var h := HBoxContainer.new()
+		p.add_child(h)
+		h.add_child(Portrait.make(cid, 120))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 2)
+		v.add_child(UI.label("%s · %s" % [c["name"], tr_(c["role"])], 26, UI.RED, 600))
+		v.add_child(UI.label(tr_(c["backstory"]), 22))
+		v.add_child(UI.label(tr_(c["personality"]), 20, UI.WOOD_DARK))
+		h.add_child(v)
+		body.add_child(p)

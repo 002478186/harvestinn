@@ -10,6 +10,9 @@ func _ready() -> void:
 	add_child(farm)
 	hud = preload("res://scripts/ui/hud.gd").new()
 	add_child(hud)
+	var tut := preload("res://scripts/ui/tutorial_card.gd").new()
+	tut.hud = hud
+	hud.root.add_child(tut)
 	farm.plot_tapped.connect(_on_plot)
 	farm.building_tapped.connect(_on_building)
 	farm.fly.connect(hud.fly)
@@ -22,6 +25,8 @@ func _ready() -> void:
 func _on_event(name: String, d: Dictionary) -> void:
 	if name == "harvest":
 		farm.harvest_feedback(d["index"], d["crop"], d["qty"])
+	elif name == "level_up":
+		Screens.talk(self, Dialogue.for_level_up(d["level"], d["unlocks"]))
 
 func say_error(code: String) -> void:
 	Sfx.play("error")

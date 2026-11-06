@@ -72,6 +72,7 @@ func add_xp(n: int) -> void:
 
 func stat(key: String, n: int = 1) -> void:
 	s["stats"][key] = int(s["stats"].get(key, 0)) + n
+	_tutorial_check()
 
 # ------------------------------------------------------------ inventory + storage
 
@@ -215,3 +216,55 @@ func offline_summary(since: float, now: float) -> Dictionary:
 		if p["crop"] != "" and float(p["ready_at"]) > since and float(p["ready_at"]) <= now:
 			out["crops"] += 1
 	return out
+
+# ------------------------------------------------------------ tutorial
+
+func tutorial_step() -> Dictionary:
+	var steps := GameData.tutorial()
+	var i := int(s["tutorial"])
+	return steps[i] if i < steps.size() else {}
+
+## Advances when the current step's stat goal is met.
+func _tutorial_check() -> void:
+	var st := tutorial_step()
+	if st.is_empty() or not st["goal"] is Dictionary: return
+	if int(s["stats"].get(st["goal"]["stat"], 0)) >= int(st["goal"]["n"]):
+		_tutorial_next()
+
+## The "Continue" button on tap-goal steps.
+func tutorial_tap() -> void:
+	var st := tutorial_step()
+	if not st.is_empty() and st["goal"] is String:
+		_tutorial_next()
+
+func _tutorial_next() -> void:
+	var r: Dictionary = tutorial_step().get("reward", {})
+	s["tutorial"] = int(s["tutorial"]) + 1
+	if r.has("coins"): add_coins(int(r["coins"]))
+	if r.has("gems"): add_gems(int(r["gems"]))
+	event.emit("tutorial", {"step": s["tutorial"]})
+	_tutorial_check()   # the next goal may already be met
+
+func skip_tutorial() -> void:
+	s["tutorial"] = GameData.tutorial().size()
+	event.emit("tutorial", {"step": s["tutorial"]})
+
+# ------------------------------------------------------------ cosmetics + avatar
+
+func owns(cosmetic_id: String) -> bool:
+	var c: Dictionary = GameData.cosmetics().get(cosmetic_id, {})
+	return int(c.get("cost", 1)) == 0 and not c.has("cost_gems") or cosmetic_id in s["owned"]
+
+func set_avatar(key: String, value) -> String:
+	if key in ["outfit", "hat"] and not owns(str(value)): return "locked"
+	s["avatar"][key] = value
+	event.emit("avatar", {})
+	return ""
+
+func set_player_name(n: String) -> String:
+	n = n.strip_edges().left(16)
+	if n.length() < 2: return "name_short"
+	if not NameFilter.is_clean(n): return "name_blocked"
+	s["name"] = n
+	event.emit("name", {"name": n})
+	return ""
