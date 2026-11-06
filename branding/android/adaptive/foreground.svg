@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><g transform="translate(195 210) scale(0.62)">
+  <ellipse cx="512" cy="790" rx="270" ry="34" fill="#000" opacity="0.12"/>
+  <!-- body -->
+  <rect x="318" y="468" width="388" height="310" rx="14" fill="#E9B872" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M330 540 H694 M330 610 H694 M330 680 H694 M330 748 H694" stroke="#C98F4E" stroke-width="8"/>
+  <!-- gambrel roof -->
+  <path d="M262 500 L330 366 L512 288 L694 366 L762 500 Z" fill="#C8553D" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M312 478 L360 382 L512 318 L664 382 L712 478" fill="none" stroke="#E07A5F" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- attic window -->
+  <circle cx="512" cy="410" r="44" fill="#FFE79A" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M512 370 V450 M472 410 H552" stroke="#4A2F1F" stroke-width="8"/>
+  <!-- windows -->
+  <rect x="354" y="560" width="82" height="82" rx="10" fill="#FFE79A" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="588" y="560" width="82" height="82" rx="10" fill="#FFE79A" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M395 564 V638 M358 601 H432 M629 564 V638 M592 601 H666" stroke="#4A2F1F" stroke-width="7"/>
+  <!-- door -->
+  <path d="M458 778 V666 Q458 618 512 618 Q566 618 566 666 V778 Z" fill="#8A5A3B" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="548" cy="712" r="8" fill="#F2B84B"/>
+  <!-- sprout -->
+  <path d="M512 292 C512 262 512 240 512 214" fill="none" stroke="#4A2F1F" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M512 236 C470 236 438 212 430 172 C474 168 506 192 512 236 Z" fill="#6BAA4B" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M512 222 C548 216 580 186 588 146 C546 146 514 176 512 222 Z" fill="#6BAA4B" stroke="#4A2F1F" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+</g></svg>
