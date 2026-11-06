@@ -1,8 +1,12 @@
 # HarvestInn 🌾🏡
 
-A cozy farm-to-table game for iOS and Android. Grow crops, raise happy animals,
-craft goods in village workshops, cook meals for travellers at your own inn,
-and trade with other players online.
+A cozy **3D** farm-to-table game for iOS and Android. Create your farmer, walk the
+valley, buy a field, plant and harvest by hand, raise happy animals, craft goods in
+village workshops, cook for travellers at your own inn, and trade with other players online.
+
+**Controls:** joystick (left thumb) or WASD to walk · drag on the right to turn the camera ·
+pinch / wheel to zoom · the green button does whatever is in front of you (buy, plant,
+harvest, talk, serve, build). **Hold** it and walk across a field to plant or harvest every plot.
 
 **Engine:** Godot 4.7 (GDScript), see [docs/ENGINE_DECISION.md](docs/ENGINE_DECISION.md)
 **Backend:** Supabase (server-authoritative trading), see [docs/BACKEND_DECISION.md](docs/BACKEND_DECISION.md)
@@ -64,8 +68,8 @@ UI strings are English source text passed through Godot's `tr()`. Add a translat
 in Project Settings → Localization. Dialogue lives in `data/dialogue/<lang>.json`.
 
 ## Decisions made where the brief was open
-- **View:** top-down 2.5D (slight 3/4 perspective sprites) instead of true
-  isometric. It keeps tap targets large and the grid math simple on phones.
+- **View:** full 3D third-person (rebuilt from the first 2D version after play-testing):
+  KayKit + Quaternius CC0 models, Godot's Mobile renderer, shadows, glow and fog.
 - **Trading inventory:** items are *deposited* into a server-side escrow
   before they can be listed or offered. The server owns those items from then
   on, which is what makes trades server-authoritative while the farm itself

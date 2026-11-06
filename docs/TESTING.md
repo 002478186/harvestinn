@@ -8,6 +8,10 @@ python3 tools/simulate_economy.py --check                        # data sanity +
 python3 tools/dev_backend.py --e2e                               # real client ↔ local PostgREST (20 checks)
 ```
 
+## Visual review
+`tools/shots.sh <dir>` renders the demo farm from five viewpoints and `tools/contact_sheet.sh <dir>`
+combines them into one image. `-- --perf` prints FPS, draw calls and triangles every 2 s.
+
 ## On your phone: a 15-minute play-test
 1. **First launch:** the Innkeeper card appears. Follow it: plant wheat → open the Inn → kitchen → cook
    Carrot Stew → harvest wheat → serve the guest (coins and hearts fly to the top bar) → Market → sell.

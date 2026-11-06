@@ -66,6 +66,12 @@ func _notification(what: int) -> void:
 ## Dev aid: `godot --path . -- --shot=out.png` saves a screenshot after ~2 s and quits.
 func _process(_dt: float) -> void:
 	for a in OS.get_cmdline_user_args():
+		if a == "--perf" and Engine.get_process_frames() % 120 == 0 and Engine.get_process_frames() > 0:
+			print("PERF fps=%d draw_calls=%d objects=%d prims=%d" % [Engine.get_frames_per_second(),
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
+			if Engine.get_process_frames() >= 600: get_tree().quit()
 		if a.begins_with("--shot=") and Engine.get_process_frames() == 120:
 			get_viewport().get_texture().get_image().save_png(a.substr(7))
 			get_tree().quit()

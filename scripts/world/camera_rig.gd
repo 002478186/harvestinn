@@ -8,6 +8,7 @@ var yaw := 0.0
 var pitch := deg_to_rad(-26.0)
 var dist := 9.5
 var cam := Camera3D.new()
+var look_offset := Vector3.ZERO     # shift the framing (e.g. the character creator puts you in the top half)
 var _touches := {}
 var _pinch := 0.0
 
@@ -28,7 +29,7 @@ func _physics_process(dt: float) -> void:
 	if hit and hit["position"].y > 0.3:     # ignore the ground itself
 		want = global_position + (hit["position"] - global_position) * 0.9
 	cam.global_position = cam.global_position.lerp(want, 1.0 - exp(-14.0 * dt)) if cam.global_position.distance_to(want) < 6.0 else want
-	cam.look_at(global_position, Vector3.UP)
+	cam.look_at(global_position + look_offset, Vector3.UP)
 	if target.has_method("do_action"):
 		target.cam_yaw = yaw
 

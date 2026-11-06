@@ -7,6 +7,7 @@ var sfx_on := true
 var music_on := true
 var _players: Array[AudioStreamPlayer] = []
 var _music := AudioStreamPlayer.new()
+var _ambience := AudioStreamPlayer.new()
 var _cache := {}
 
 func _ready() -> void:
@@ -19,6 +20,9 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	add_child(_music)
+	add_child(_ambience)
+	_ambience.volume_db = -16.0
+	_ambience.finished.connect(_ambience.play)
 	_music.volume_db = -10.0
 	_music.finished.connect(_music.play)
 	play_music()
@@ -46,10 +50,10 @@ func play(name: String, pitch_jitter := 0.08) -> void:
 
 func play_music() -> void:
 	_music.stream = _stream("music_farm")
-	if music_on and _music.stream:
-		_music.play()
-	else:
-		_music.stop()
+	_ambience.stream = _stream("ambience")
+	for p in [_music, _ambience]:
+		if music_on and p.stream: p.play()
+		else: p.stop()
 
 func set_audio(sfx: bool, music: bool) -> void:
 	sfx_on = sfx

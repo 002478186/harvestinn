@@ -122,7 +122,31 @@ def music():
     write("music_farm", out, 0.55)
 
 
+def ambience():
+    """A 20 s seamless loop: soft wind (filtered noise) with occasional bird chirps."""
+    dur = 20.0
+    n = int(SR * dur)
+    r = random.Random(9)
+    out, y, y2 = [0.0] * n, 0.0, 0.0
+    for i in range(n):
+        y += 0.002 * (r.uniform(-1, 1) - y)
+        y2 += 0.02 * (y - y2)
+        swell = 0.6 + 0.4 * math.sin(2 * math.pi * i / n)          # exact period -> seamless
+        out[i] = y2 * 60 * swell
+    t = 0.7
+    while t < dur - 1.0:
+        f0 = r.uniform(2600, 4200)
+        for k in range(r.randint(2, 5)):                            # a little phrase of chirps
+            chirp = tone(f0 * r.uniform(0.9, 1.15), 0.09, a=0.005, d=0.035, glide=r.uniform(-3, 3))
+            s0 = int((t + k * 0.12) * SR)
+            for j, v in enumerate(chirp):
+                if s0 + j < n: out[s0 + j] += v * 0.35
+        t += r.uniform(1.5, 4.0)
+    write("ambience", out, 0.35)
+
+
 if __name__ == "__main__":
     sfx()
     music()
+    ambience()
     print("audio written:", sorted(p.name for p in OUT.glob("*.wav")))

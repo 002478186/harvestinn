@@ -16,7 +16,7 @@ func _ready() -> void:
 	world.main = self
 	add_child(world)
 	player = preload("res://scripts/world/player.gd").new()
-	player.position = Vector3(0, 0, 0)
+	player.position = Vector3(0, 0, 1.5)
 	world.add_child(player)
 	world.player = player
 	_dress_player()
@@ -180,6 +180,29 @@ func talk_to(id: String, opens: String) -> void:
 			"shop": func(): Screens.shop(self), "animals": func(): Screens.animal_guide(self)}
 		v.add_child(UI.button(tr(labels[opens]), func(): hud.close_popup(v); go[opens].call(), UI.MEADOW))
 		v.add_child(UI.button(tr("Bye!"), func(): hud.close_popup(v), UI.WOOD_DARK)))
+
+## Terrace service: serve straight from your basket, or go cook the missing meal.
+func serve_at_table(t: int) -> void:
+	var m: GameModel = Game.model
+	var g: Dictionary = m.inn()["guests"][t]
+	if not m.has_items(g["order"]):
+		Screens.workshop(self, "kitchen")
+		hud.toast(tr("%s would love: %s") % [GameData.characters()[g["char"]]["name"].split(" ")[0],
+			", ".join(g["order"].keys().map(func(k): return "%s ×%d" % [GameData.item_name(k), int(g["order"][k])]))])
+		return
+	var at: Vector3 = world.TABLES[t]
+	var err := m.serve_guest(t)
+	if err != "":
+		say_error(err)
+		return
+	player.do_action("Interact", at)
+	Sfx.play("coins")
+	var cam := get_viewport().get_camera_3d()
+	var screen := cam.unproject_position(at + Vector3(0, 1.5, 0))
+	for k in 4: hud.fly(UI.icon("coin"), screen, "coins")
+	hud.fly(UI.icon("rep"), screen, "rep")
+	var lines: Array = GameData.characters()[g["char"]]["lines"].get("served", [])
+	if not lines.is_empty(): hud.toast("“%s”" % Dialogue.text(lines[0]))
 
 func show_inn() -> void:
 	hud.close_sheet()

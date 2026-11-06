@@ -15,6 +15,9 @@ func _ready() -> void:
 	Game.event.connect(func(n, _d): if n in ["tutorial", "reset", "name"]: _show())
 	_show()
 
+func _process(_dt: float) -> void:
+	visible = not Game.model.tutorial_step().is_empty() and not hud.sheet_open() and not hud._popup_open
+
 func _show() -> void:
 	for c in get_children(): c.queue_free()
 	if _pulse: _pulse.kill()

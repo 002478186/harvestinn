@@ -189,7 +189,10 @@ static func character_creator(main) -> void:
 	var a: Dictionary = m.s["avatar"]
 	if str(a.get("model", "")) == "":
 		m.set_avatar("model", Character3D.MODELS[0])
-	main.rig.dist = 6.5
+	main.rig.dist = 6.0
+	main.rig.yaw = PI                        # camera in front: see your farmer's face
+	main.rig.look_offset = Vector3(0, -1.6, 0)
+	main.player.body.rotation.y = 0.0
 	var body: VBoxContainer = main.hud.sheet(tr_("Your farmer"), 0.48)
 	var redo := func(): character_creator(main)
 	var models := Character3D.MODELS
@@ -226,6 +229,8 @@ static func character_creator(main) -> void:
 			return
 		Net.call_rpc("set_display_name", {"p_name": m.s["name"]})
 		main.rig.dist = 9.5
+		main.rig.yaw = 0.0
+		main.rig.look_offset = Vector3.ZERO
 		main.hud.close_sheet()
 		Sfx.play("level_up")
 		main.player.do_action("Cheer", main.rig.cam.global_position), UI.MEADOW))

@@ -82,7 +82,7 @@ func _environment() -> void:
 	sun.light_energy = 1.45
 	sun.shadow_opacity = 0.85
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 70.0
+	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
@@ -187,7 +187,7 @@ func _scenery() -> void:
 		_place(["village/hills_A_trees.gltf", "village/hills_B_trees.gltf", "village/mountain_A_grass_trees.gltf"][i % 3], 22.0, Vector3(cos(a2) * 80, -1, sin(a2) * 80), r.randf() * 360.0)
 	for p in [Vector3(-9, 0, 2), Vector3(11, 0, 3), Vector3(-20, 0, 22), Vector3(34, 0, -8), Vector3(-33, 0, -25), Vector3(-30, 0, 8)]:
 		_place(["village/rock_single_A.gltf", "village/rock_single_C.gltf", "village/rock_single_E.gltf"][r.randi() % 3], 5.0, p, r.randf() * 360.0, true)
-	_scatter_mesh(_tuft_mesh(), 6000, 1.0, r)
+	_scatter_mesh(_tuft_mesh(), 4500, 1.0, r)
 	_scatter("crops/S_Grass_2.glb", 400, 0.7, r, 6.0)
 	_square()
 	_pond(Vector3(-24, 0, 3), 7.0)
@@ -242,6 +242,12 @@ void fragment() {
 	for k in 7:
 		var a := TAU * k / 7.0
 		_place("village/rock_single_%s.gltf" % ["A", "C", "E"][k % 3], 2.5, at + Vector3(cos(a), 0, sin(a)) * (radius + 0.5), k * 50.0)
+
+## Hide small details beyond `dist` metres from the camera (phones draw fewer triangles).
+func _cull(n: Node, dist: float) -> void:
+	for ch in n.get_children():
+		if ch is GeometryInstance3D: ch.visibility_range_end = dist
+		_cull(ch, dist)
 
 func _no_shadow(n: Node) -> void:
 	for ch in n.get_children():
@@ -298,6 +304,9 @@ func _scatter_mesh(mesh: Mesh, count: int, scale: float, r: RandomNumberGenerato
 	var inst := MultiMeshInstance3D.new()
 	inst.multimesh = mm
 	inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	inst.visibility_range_end = 32.0        # grass far from the camera isn't drawn
+	inst.visibility_range_end_margin = 4.0
+	inst.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	add_child(inst)
 
 ## The village square: fountain, lamp posts, flower beds, market clutter.
@@ -396,6 +405,9 @@ func _scatter(path: String, count: int, scale: float, r: RandomNumberGenerator, 
 	var inst := MultiMeshInstance3D.new()
 	inst.multimesh = mm
 	inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	inst.visibility_range_end = 32.0        # grass far from the camera isn't drawn
+	inst.visibility_range_end_margin = 4.0
+	inst.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	add_child(inst)
 	src.free()
 
@@ -589,7 +601,12 @@ func _terrace(m: GameModel) -> void:
 			bubble.outline_modulate = UI.INK
 			bubble.position = Vector3(0, 2.4, 0)
 			who.add_child(bubble)
-			_add("Serve %s" % GameData.characters()[gid]["name"].split(" ")[0], at, 2.8, func(): main.show_inn(), "inn")
+			var ti: int = t
+			var order: Dictionary = guests[t]["order"]
+			var first: String = GameData.characters()[gid]["name"].split(" ")[0]
+			_add(func(): return ("Serve %s · %d coins" % [first, m.order_value(order)]) if m.has_items(order) else "Cook for %s" % first,
+				at, 2.8, func(): main.serve_at_table(ti), "inn")
+			who.set_meta("guest_table", t)
 
 func _building(id: String, owned: bool) -> void:
 	var b: Array = BUILDINGS[id]
@@ -704,6 +721,7 @@ func _refresh_plot(i: int) -> void:
 	var sc := CROP_SCALE * (0.55 if stage.begins_with("BushBerries") or stage.begins_with("Pumpkin") or stage.begins_with("Watermelon") else 1.0)
 	for k in 4:   # four plants per plot
 		_place("crops/S_%s.glb" % stage, sc, Vector3(-0.5 + (k % 2), 0.12, -0.5 + (k / 2)), k * 90.0, false, crop)
+	_cull(crop, 45.0)
 	crop.scale = Vector3(0.3, 0.3, 0.3)
 	crop.create_tween().tween_property(crop, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if stage.ends_with("_4"):
@@ -716,6 +734,7 @@ func _refresh_plot(i: int) -> void:
 
 func harvest_fx(i: int, crop: String) -> void:
 	var at := plot_pos(i) + Vector3(0, 1, 0)
+	_pop_produce(plot_pos(i), crop)
 	var p := CPUParticles3D.new()
 	p.position = at
 	p.one_shot = true
@@ -742,6 +761,20 @@ func harvest_fx(i: int, crop: String) -> void:
 		var screen := cam.unproject_position(at)
 		for k in 3: main.hud.fly(UI.item_tex(crop), screen, "barn")
 		main.hud.fly(UI.icon("xp"), screen, "xp")
+
+## The harvested produce jumps out of the soil, spins, and arcs into the farmer's arms.
+func _pop_produce(at: Vector3, crop: String) -> void:
+	var fam: String = GameData.crops()[crop]["model"]
+	var path := "crops/S_%sCrop.glb" % fam
+	if not ResourceLoader.exists("res://assets/3d/" + path): path = "crops/S_%s_4.glb" % fam
+	for k in 3:
+		var n := _place(path, 1.2, at + Vector3(randf_range(-0.6, 0.6), 0.2, randf_range(-0.6, 0.6)), randf() * 360.0)
+		var up := n.position + Vector3(0, 1.8 + k * 0.3, 0)
+		var tw := n.create_tween()
+		tw.tween_property(n, "position", up, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT).set_delay(k * 0.06)
+		tw.parallel().tween_property(n, "rotation:y", n.rotation.y + TAU, 0.5)
+		tw.tween_method(func(t: float): n.position = up.lerp(player.global_position + Vector3(0, 1.2, 0), t); n.scale = Vector3.ONE * 1.2 * (1.0 - t * 0.8), 0.0, 1.0, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_callback(n.queue_free)
 
 # ------------------------------------------------------------------ interaction
 

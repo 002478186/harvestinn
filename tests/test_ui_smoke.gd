@@ -31,6 +31,11 @@ func test_3d_core_loop_through_the_game_scene() -> bool:
 	for screen in ["barn", "shop", "settings", "market", "orders", "friends", "trophy", "event"]:
 		main._on_nav(screen)
 		truthy(main.hud.sheet_open(), screen + " opens")
+	game.model.tick(game.now())
+	game.model.add_items({"carrot_stew": 1}, true)
+	var coins: int = game.model.s["coins"]
+	main.serve_at_table(0)
+	truthy(game.model.s["coins"] > coins, "served the terrace guest in the world")
 	main.show_inn()
 	truthy(main.inn.visible, "inn view opens")
 	main.show_farm()
