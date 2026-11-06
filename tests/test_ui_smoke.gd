@@ -17,7 +17,7 @@ func test_plant_and_harvest_through_ui() -> bool:
 	main._on_plot(0)
 	eq(game.model.s["plots"][0]["crop"], "", "harvested")
 	eq(game.model.count("wheat"), 6, "wheat in barn")
-	for screen in ["barn", "shop", "settings", "market", "orders", "friends"]:
+	for screen in ["barn", "shop", "settings", "market", "orders", "friends", "trophy", "event"]:
 		main._on_nav(screen)
 		truthy(main.hud.sheet_open(), screen + " opens")
 	main._on_nav("inn")

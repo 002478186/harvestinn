@@ -35,6 +35,8 @@ func _ready() -> void:
 			var v := a.substr(9)
 			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
 			else: Screens.open(self, v)
+	if Game.model.tutorial_step().is_empty() and Game.model.daily_index(Game.now()) >= 0:
+		Screens.daily(self)
 	var w := Game.welcome
 	if float(w.get("away", 0.0)) > 3600.0 or ["crops", "jobs", "animals", "guests", "room_coins"].any(func(k): return int(w.get(k, 0)) > 0) and float(w.get("away", 0.0)) > 60.0:
 		Screens.welcome_back(self, Game.welcome)
@@ -43,6 +45,11 @@ func _ready() -> void:
 func _on_event(name: String, d: Dictionary) -> void:
 	if name == "harvest":
 		farm.harvest_feedback(d["index"], d["crop"], d["qty"])
+	elif name == "achievement":
+		Sfx.play("level_up")
+		hud.toast(tr("Achievement: %s!") % tr(GameData.achievements()[d["id"]]["name"]))
+	elif name == "tutorial" and Game.model.tutorial_step().is_empty():
+		Screens.daily(self)
 	elif name == "helped":
 		hud.toast(tr("%s watered one of your crops!") % d["name"])
 	elif name == "level_up":

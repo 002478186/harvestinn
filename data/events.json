@@ -1,0 +1,23 @@
+{
+  "_doc": "Seasonal events, recurring every year between start and end (MM-DD, inclusive, local date; end < start wraps over New Year). featured items sell for sell_mult at the stall. goal: contribute items to the event board for the reward. Add a new event here — no code changes needed.",
+  "spring_blossom": {"name": "Spring Blossom Fair", "start": "03-20", "end": "04-10", "host": "innkeeper",
+    "text": "The orchards are in bloom! Bring flowers and fresh greens for the fair.",
+    "featured": ["sunflower", "lettuce", "strawberry"], "sell_mult": 1.5,
+    "goal": {"items": {"strawberry": 30, "lettuce": 20}}, "reward": {"coins": 1500, "gems": 10, "decor": "decor_flowerbed"}},
+  "summer_berry": {"name": "Midsummer Berry Bash", "start": "06-20", "end": "07-10", "host": "chef",
+    "text": "Basil wants berries. All the berries. For science (and pies).",
+    "featured": ["strawberry", "blueberry", "strawberry_jam"], "sell_mult": 1.4,
+    "goal": {"items": {"strawberry_jam": 10, "blueberry": 15}}, "reward": {"coins": 2500, "gems": 12, "decor": "decor_pond"}},
+  "harvest_moon": {"name": "Harvest Moon Festival", "start": "09-20", "end": "10-31", "host": "merchant",
+    "text": "The big autumn festival! Pumpkins, pies and lanterns everywhere.",
+    "featured": ["pumpkin", "pumpkin_pie", "corn"], "sell_mult": 1.5,
+    "goal": {"items": {"pumpkin": 25, "corn": 40}}, "reward": {"coins": 3000, "gems": 15, "decor": "decor_scarecrow"}},
+  "winter_cozy": {"name": "Cozy Winter Nights", "start": "12-01", "end": "01-07", "host": "craftsperson",
+    "text": "Snow on the roof, a fire in the hearth. The valley needs warm blankets and soup.",
+    "featured": ["blanket", "sweater", "pumpkin_soup", "carrot_stew"], "sell_mult": 1.4,
+    "goal": {"items": {"carrot_stew": 15, "wheat": 60}}, "reward": {"coins": 2000, "gems": 12, "decor": "decor_lamp"}},
+  "autumn_preview": {"name": "Autumn Apple-less Picnic", "start": "11-01", "end": "11-20", "host": "vet",
+    "text": "Juniper is hosting a picnic for the animals. Eggs and milk, please!",
+    "featured": ["egg", "milk", "carrot"], "sell_mult": 1.3,
+    "goal": {"items": {"carrot": 40, "wheat": 40}}, "reward": {"coins": 1200, "gems": 8, "decor": "decor_well"}}
+}

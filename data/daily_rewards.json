@@ -1,0 +1,12 @@
+{
+  "_doc": "7-day login streak. Missing a day restarts at day 1; after day 7 it loops. Day = local calendar day.",
+  "rewards": [
+    {"coins": 50},
+    {"coins": 80, "items": {"animal_feed": 3}},
+    {"gems": 2},
+    {"coins": 150},
+    {"coins": 100, "items": {"flour": 3}},
+    {"gems": 3},
+    {"coins": 300, "gems": 5}
+  ]
+}

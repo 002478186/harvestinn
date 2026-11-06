@@ -6,7 +6,7 @@ signal event(name: String, data: Dictionary)
 
 var save_path := "user://save.json"   # tests point this elsewhere
 const AUTOSAVE_SECONDS := 30.0
-const SAVE_NOW_EVENTS := ["harvest", "level_up", "building", "served", "sold", "trade", "purchase", "collect"]
+const SAVE_NOW_EVENTS := ["harvest", "level_up", "building", "served", "sold", "trade", "purchase", "collect", "daily", "achievement_claimed", "event", "outbox", "animal"]
 
 var model: GameModel
 var welcome := {}             # offline summary shown once by main.gd

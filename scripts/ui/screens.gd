@@ -31,6 +31,9 @@ static func open(main, screen: String) -> void:
 		"market": market(main)
 		"orders": deliveries(main)
 		"friends": TradeScreens.friends(main)
+		"gift": daily(main, true)
+		"trophy": achievements(main)
+		"event": events(main)
 		"inn": main.show_farm() if main.inn.visible else main.show_inn()
 		_: main.hud.toast(tr_("Coming soon"))
 
@@ -598,3 +601,82 @@ static func animals(main, h: String) -> void:
 	var next := m.building_level(h) + 1
 	if next < levels.size():
 		body.add_child(UI.button(tr_("Bigger home: %d animals · %d coins") % [int(levels[next]["capacity"]), int(levels[next]["cost"])], func(): act.call(m.upgrade_building(h), "build"), UI.WOOD_DARK, UI.icon("coin")))
+
+# ------------------------------------------------------------------ daily, achievements, events
+
+static func _reward_text(r: Dictionary) -> String:
+	var parts := []
+	if r.has("coins"): parts.append("%d coins" % int(r["coins"]))
+	if r.has("gems"): parts.append("%d gems" % int(r["gems"]))
+	for it in r.get("items", {}): parts.append("%d %s" % [int(r["items"][it]), tr_(GameData.item_name(it))])
+	if r.has("decor"): parts.append(tr_(GameData.cosmetics()[r["decor"]]["name"]))
+	return ", ".join(parts)
+
+static func daily(main, from_button := false) -> void:
+	var m: GameModel = Game.model
+	var today := m.daily_index(Game.now())
+	if today < 0:
+		if from_button: main.hud.toast(tr_("Come back tomorrow for your next gift!"))
+		return
+	main.hud.queue_popup(func():
+		var v: VBoxContainer = main.hud.popup(tr_("Daily gift: day %d") % (today + 1), UI.icon("gift"))
+		var g := GridContainer.new()
+		g.columns = 4
+		var rewards := GameData.daily_rewards()
+		for i in rewards.size():
+			var cell := PanelContainer.new()
+			cell.add_theme_stylebox_override("panel", UI.box(UI.MEADOW.lightened(0.5) if i < today else (UI.WHEAT if i == today else Color.WHITE), 14, 3))
+			cell.add_child(UI.label(tr_("Day %d\n%s") % [i + 1, _reward_text(rewards[i])], 18))
+			cell.custom_minimum_size = Vector2(130, 110)
+			g.add_child(cell)
+		v.add_child(g)
+		v.add_child(UI.button(tr_("Claim %s") % _reward_text(rewards[today]), func():
+			m.claim_daily(Game.now())
+			Sfx.play("coins")
+			main.hud.fly(UI.icon("gift"), main.hud.root.get_viewport_rect().size / 2, "coins")
+			main.hud.close_popup(v), UI.MEADOW)))
+
+static func achievements(main) -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Achievements"), 0.85)
+	for id in GameData.achievements():
+		var a: Dictionary = GameData.achievements()[id]
+		var have := mini(int(m.s["stats"].get(a["stat"], 0)), int(a["goal"]))
+		var claimed: bool = id in m.s["achievements"]
+		var done := m.achievement_done(id)
+		body.add_child(row(UI.icon("trophy"), tr_(a["name"]), "%s · %d/%d · %s" % [tr_(a["desc"]), have, int(a["goal"]), _reward_text(a["reward"])],
+			tr_("Claimed") if claimed else tr_("Claim"), func():
+				if m.claim_achievement(id) == "": Sfx.play("coins")
+				achievements(main), done and not claimed, UI.MEADOW))
+
+static func events(main) -> void:
+	var m: GameModel = Game.model
+	var now := Game.now()
+	var body: VBoxContainer = main.hud.sheet(tr_("Seasonal events"), 0.85)
+	var list := GameModel.active_events(now)
+	if list.is_empty():
+		body.add_child(UI.label(tr_("No event right now. Check back soon!"), 26))
+	for e in list:
+		var head := HBoxContainer.new()
+		head.add_child(Portrait.make(e["host"], 110))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(UI.label(tr_(e["name"]), 30, UI.RED, 600))
+		v.add_child(UI.label(tr_(e["text"]), 22))
+		v.add_child(UI.label(tr_("Until %s · featured items sell for ×%.1f at the stall") % [e["end"], float(e["sell_mult"])], 20, UI.WOOD_DARK))
+		head.add_child(v)
+		body.add_child(head)
+		var p := m.event_progress(e["id"], now)
+		var goal: Dictionary = e["goal"]["items"]
+		for it in goal:
+			var given := int(p["given"].get(it, 0))
+			body.add_child(row(UI.item_tex(it), "%s %d/%d" % [tr_(GameData.item_name(it)), given, int(goal[it])], tr_("You have %d") % m.count(it), tr_("Give"),
+				func():
+					var err := m.contribute_event(e["id"], it, m.count(it), Game.now())
+					if err != "": main.say_error(err)
+					else: Sfx.play("collect")
+					events(main), given < int(goal[it]) and m.count(it) > 0, UI.MEADOW))
+		body.add_child(UI.button(tr_("Claim reward: %s") % _reward_text(e["reward"]) if not p["claimed"] else tr_("Reward claimed"), func():
+			var err := m.claim_event(e["id"], Game.now())
+			if err != "": main.say_error(err)
+			else: Sfx.play("level_up"); events(main), UI.WHEAT))

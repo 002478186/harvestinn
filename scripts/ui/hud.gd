@@ -115,9 +115,13 @@ func _build_side(safe: Vector2) -> void:
 	side.offset_top = -40
 	root.add_child(side)
 	add_side_button("orders", "Orders")
+	add_side_button("gift", "Daily reward")
+	add_side_button("trophy", "Achievements")
+	if not GameModel.active_events(Game.now()).is_empty():
+		add_side_button("event", "Seasonal event")
 
 func add_side_button(id: String, tip: String) -> void:
-	var b := UI.button("", func(): nav.emit(id), UI.CREAM, UI.icon(id))
+	var b := UI.button("", func(): nav.emit(id), UI.CREAM, UI.icon("xp" if id == "event" else id))
 	b.tooltip_text = tip
 	b.custom_minimum_size = Vector2(96, 96)
 	b.add_theme_constant_override("icon_max_width", 60)

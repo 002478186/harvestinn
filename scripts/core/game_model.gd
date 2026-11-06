@@ -73,6 +73,10 @@ func add_xp(n: int) -> void:
 func stat(key: String, n: int = 1) -> void:
 	s["stats"][key] = int(s["stats"].get(key, 0)) + n
 	_tutorial_check()
+	for id in GameData.achievements():
+		var a: Dictionary = GameData.achievements()[id]
+		if a["stat"] == key and int(s["stats"][key]) >= int(a["goal"]) and int(s["stats"][key]) - n < int(a["goal"]):
+			event.emit("achievement", {"id": id})
 
 # ------------------------------------------------------------ inventory + storage
 
@@ -542,7 +546,10 @@ static func demand(item: String, day: int) -> float:
 	return lerpf(float(m["demand_min"]), float(m["demand_max"]), t)
 
 static func market_price(item: String, now: float) -> int:
-	return maxi(1, int(round(GameData.item_price(item) * demand(item, day_of(now)))))
+	var bonus := 1.0
+	for e in active_events(now):
+		if item in e["featured"]: bonus = maxf(bonus, float(e["sell_mult"]))
+	return maxi(1, int(round(GameData.item_price(item) * demand(item, day_of(now)) * bonus)))
 
 func sold_today(item: String, now: float) -> int:
 	var mk: Dictionary = s["market"]
@@ -827,3 +834,103 @@ func tend_all(h: String, now: float) -> Dictionary:
 			if e2 == "": r["fed"] += 1
 			elif r["error"] == "": r["error"] = e2
 	return r
+
+# ------------------------------------------------------------ daily rewards, achievements, events
+
+## Local calendar day number (so the streak follows the player's midnight).
+static func local_day(now: float) -> int:
+	var bias: float = Time.get_time_zone_from_system().get("bias", 0) * 60.0
+	return int(floor((now + bias) / 86400.0))
+
+## Index 0..6 of the reward that can be claimed today, or -1 if already claimed.
+func daily_index(now: float) -> int:
+	var d: Dictionary = s["daily"]
+	var today := local_day(now)
+	if int(d.get("last", -10)) == today: return -1
+	var streak := int(d.get("streak", 0)) if int(d.get("last", -10)) == today - 1 else 0
+	return streak % GameData.daily_rewards().size()
+
+func claim_daily(now: float) -> Dictionary:
+	var i := daily_index(now)
+	if i < 0: return {}
+	var r: Dictionary = GameData.daily_rewards()[i]
+	s["daily"] = {"last": local_day(now), "streak": i + 1}
+	_grant(r)
+	if i == GameData.daily_rewards().size() - 1: stat("daily_streak_7")
+	event.emit("daily", {"index": i})
+	return r
+
+func _grant(r: Dictionary) -> void:
+	if r.has("coins"): add_coins(int(r["coins"]))
+	if r.has("gems"): add_gems(int(r["gems"]))
+	if r.has("items"): add_items(r["items"], true)
+	if r.has("decor"): s["decor"].append({"id": r["decor"], "x": 0, "y": 0})
+
+func achievement_done(id: String) -> bool:
+	var a: Dictionary = GameData.achievements()[id]
+	return int(s["stats"].get(a["stat"], 0)) >= int(a["goal"])
+
+func claim_achievement(id: String) -> String:
+	if id in s["achievements"]: return "owned"
+	if not achievement_done(id): return "not_ready"
+	s["achievements"].append(id)
+	_grant(GameData.achievements()[id]["reward"])
+	event.emit("achievement_claimed", {"id": id})
+	return ""
+
+func unclaimed_achievements() -> int:
+	return GameData.achievements().keys().filter(func(id): return achievement_done(id) and not id in s["achievements"]).size()
+
+static func _mmdd(now: float) -> String:
+	var bias: float = Time.get_time_zone_from_system().get("bias", 0) * 60.0
+	var d := Time.get_date_dict_from_unix_time(int(now + bias))
+	return "%02d-%02d" % [d["month"], d["day"]]
+
+## Events whose MM-DD window contains today (windows may wrap over New Year).
+static func active_events(now: float) -> Array:
+	var today := _mmdd(now)
+	var out := []
+	for id in GameData.events():
+		var e: Dictionary = GameData.events()[id]
+		var inside: bool = (today >= e["start"] and today <= e["end"]) if e["start"] <= e["end"] else (today >= e["start"] or today <= e["end"])
+		if inside:
+			var c := e.duplicate()
+			c["id"] = id
+			out.append(c)
+	return out
+
+## Progress key includes the year so the event can be done again next year.
+func _event_key(id: String, now: float) -> String:
+	var e: Dictionary = GameData.events()[id]
+	var year: int = Time.get_date_dict_from_unix_time(int(now))["year"]
+	if e["start"] > e["end"] and _mmdd(now) <= e["end"]:
+		year -= 1                     # January part of a December event counts as last year's
+	return "%s:%d" % [id, year]
+
+func event_progress(id: String, now: float) -> Dictionary:
+	var k := _event_key(id, now)
+	if not s["events"].has(k): s["events"][k] = {"given": {}, "claimed": false}
+	return s["events"][k]
+
+func contribute_event(id: String, item: String, qty: int, now: float) -> String:
+	var goal: Dictionary = GameData.events()[id]["goal"]["items"]
+	var p := event_progress(id, now)
+	var left := int(goal.get(item, 0)) - int(p["given"].get(item, 0))
+	qty = mini(qty, left)
+	if qty <= 0: return "not_needed"
+	if not remove_items({item: qty}): return "missing_items"
+	p["given"][item] = int(p["given"].get(item, 0)) + qty
+	event.emit("event", {"id": id})
+	return ""
+
+func claim_event(id: String, now: float) -> String:
+	var p := event_progress(id, now)
+	if p["claimed"]: return "owned"
+	var goal: Dictionary = GameData.events()[id]["goal"]["items"]
+	for it in goal:
+		if int(p["given"].get(it, 0)) < int(goal[it]): return "not_ready"
+	p["claimed"] = true
+	_grant(GameData.events()[id]["reward"])
+	stat("events")
+	event.emit("event", {"id": id, "claimed": true})
+	return ""

@@ -1,0 +1,18 @@
+{
+  "_doc": "Achievements: unlocked when stats[stat] >= goal (stats are counted in game_model.gd stat()). Claim for the reward.",
+  "first_harvest":   {"name": "First Sprouts",      "desc": "Harvest your first crop",        "stat": "harvests",     "goal": 1,    "reward": {"coins": 20}},
+  "green_thumb":     {"name": "Green Thumb",        "desc": "Harvest 100 crops",              "stat": "harvests",     "goal": 100,  "reward": {"gems": 3}},
+  "master_grower":   {"name": "Master Grower",      "desc": "Harvest 1,000 crops",            "stat": "harvests",     "goal": 1000, "reward": {"gems": 10}},
+  "first_guest":     {"name": "Doors Open",         "desc": "Serve your first guest",         "stat": "served",       "goal": 1,    "reward": {"coins": 30}},
+  "busy_inn":        {"name": "Busy Night",         "desc": "Serve 50 guests",                "stat": "served",       "goal": 50,   "reward": {"gems": 5}},
+  "beloved_inn":     {"name": "Beloved Inn",        "desc": "Serve 500 guests",               "stat": "served",       "goal": 500,  "reward": {"gems": 15}},
+  "chef_apprentice": {"name": "Kitchen Helper",     "desc": "Cook 25 meals",                  "stat": "cooked",       "goal": 25,   "reward": {"coins": 200}},
+  "artisan":         {"name": "Artisan",            "desc": "Make 100 workshop goods",        "stat": "crafted",      "goal": 100,  "reward": {"gems": 5}},
+  "animal_friend":   {"name": "Animal Friend",      "desc": "Pet animals 50 times",           "stat": "pets",         "goal": 50,   "reward": {"gems": 3}},
+  "well_fed":        {"name": "Full Bellies",       "desc": "Feed animals 200 times",         "stat": "animals_fed",  "goal": 200,  "reward": {"coins": 1000}},
+  "deliveries":      {"name": "Village Helper",     "desc": "Complete 20 village orders",     "stat": "deliveries",   "goal": 20,   "reward": {"gems": 5}},
+  "trader":          {"name": "Trader",             "desc": "Complete 10 online trades",      "stat": "trades",       "goal": 10,   "reward": {"gems": 5}},
+  "market_regular":  {"name": "Market Regular",     "desc": "Sell 500 items at the stall",    "stat": "sold",         "goal": 500,  "reward": {"coins": 500}},
+  "builder":         {"name": "Builder",            "desc": "Build 5 buildings",              "stat": "built",        "goal": 5,    "reward": {"gems": 4}},
+  "streak":          {"name": "Regular Visitor",    "desc": "Claim the day-7 daily reward",   "stat": "daily_streak_7", "goal": 1,  "reward": {"gems": 5}}
+}
