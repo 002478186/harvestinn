@@ -293,9 +293,9 @@ static func offer_form(main, friend: Dictionary) -> void:
 static func friends(main) -> void:
 	var body: VBoxContainer = main.hud.sheet(tr_("Friends"), 0.85)
 	if not gate(main, body, "friends"): return
-	var me := await Net.get_rows("profiles", "select=friend_code,display_name&id=eq." + Net.user_id())
+	var me := await Net.call_rpc("my_profile")
 	if not is_instance_valid(body): return
-	var code: String = me["data"][0]["friend_code"] if me["data"] is Array and not me["data"].is_empty() else "?"
+	var code: String = str(me["data"].get("friend_code", "?")) if me["data"] is Dictionary else "?"
 	var h := HBoxContainer.new()
 	var cl := UI.label(tr_("Your friend code: %s") % code, 30, UI.RED, 600)
 	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL

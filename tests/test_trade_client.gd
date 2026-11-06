@@ -45,3 +45,13 @@ func test_server_rules_seed_matches_items() -> bool:
 	for id in GameData.items():
 		truthy(sql.contains("('%s', %d, %d, %d)" % [id, GameData.item_price(id), TradeRules.min_price(id), TradeRules.max_price(id)]), id + " in seed (re-run tools/gen_item_rules_sql.py)")
 	return true
+
+func test_collect_op_is_saved_before_sending_and_floats_ok() -> bool:
+	var m := GameModel.new_game(0.0)
+	var seen := []
+	m.event.connect(func(n, _d): seen.append(n))
+	m.queue_collect()
+	truthy("outbox" in seen, "collect op triggers a save")
+	eq(m.queue_deposit({"wheat": 2.0}, 0), "", "float quantity from JSON accepted")
+	eq(typeof(m.s["outbox"][-1]["items"]["wheat"]), TYPE_INT, "sent as int")
+	return true

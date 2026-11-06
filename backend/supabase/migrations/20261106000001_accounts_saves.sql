@@ -33,8 +33,11 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 alter table public.profiles enable row level security;
--- Profiles are public within the game (names, levels, farm snapshots for visits).
+-- Names and levels are public in-game; friend codes and farm snapshots are only
+-- reachable through RPCs (my_profile, visit_farm for friends).
 create policy profiles_read on public.profiles for select to authenticated using (true);
+revoke select on public.profiles from anon, authenticated;
+grant select (id, display_name, level) on public.profiles to authenticated;
 
 create or replace function private.new_friend_code()
 returns text language plpgsql volatile set search_path = '' as $$
@@ -118,6 +121,12 @@ begin
   return jsonb_build_object('ok', true, 'revision', (select revision from public.cloud_saves where user_id = uid));
 end $$;
 
+create or replace function public.my_profile()
+returns jsonb language sql security definer stable set search_path = '' as $$
+  select jsonb_build_object('id', id, 'display_name', display_name, 'friend_code', friend_code, 'level', level)
+  from public.profiles where id = (select auth.uid());
+$$;
+
 create or replace function public.load_game()
 returns jsonb language sql security definer stable set search_path = '' as $$
   select coalesce(
@@ -128,6 +137,6 @@ $$;
 
 -- Lock down: only the functions above are callable, and only by signed-in users.
 revoke all on all functions in schema private from public, anon, authenticated;
-revoke execute on function public.set_display_name(text), public.save_game(jsonb, bigint), public.load_game() from public, anon;
-grant execute on function public.set_display_name(text), public.save_game(jsonb, bigint), public.load_game() to authenticated;
+revoke execute on function public.set_display_name(text), public.save_game(jsonb, bigint), public.load_game(), public.my_profile() from public, anon;
+grant execute on function public.set_display_name(text), public.save_game(jsonb, bigint), public.load_game(), public.my_profile() to authenticated;
 revoke insert, update, delete on public.profiles, public.cloud_saves from anon, authenticated;

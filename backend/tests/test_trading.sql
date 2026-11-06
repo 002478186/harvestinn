@@ -2,6 +2,7 @@ begin;
 -- three players: seller A, buyer B, stranger C
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000b2'), ('00000000-0000-0000-0000-0000000000c3');
+select set_config('harvest.bcode', (select friend_code from public.profiles where id = '00000000-0000-0000-0000-0000000000b2'), false);
 set role authenticated;
 
 -- A deposits and lists
@@ -11,12 +12,16 @@ do $$ declare r jsonb; lid bigint; begin
   assert r ->> 'ok' = 'true', 'deposit ok';
   r := public.deposit('11111111-0000-0000-0000-000000000001', '{"egg": 10}', 0);   -- retried request
   assert (select qty from public.escrow where item = 'egg') = 10, 'idempotent deposit: still 10';
-  begin perform public.deposit(gen_random_uuid(), '{"egg": 95}', 0); assert false, 'cap';
+  begin perform public.deposit(gen_random_uuid(), '{"egg": 91}', 0); assert false, 'cap';
   exception when others then assert sqlerrm = 'deposit_cap', 'daily cap: ' || sqlerrm; end;
   begin perform public.deposit(gen_random_uuid(), '{"gold_bar": 1}', 0); assert false, 'unknown';
   exception when others then assert sqlerrm = 'unknown_item', sqlerrm; end;
   begin perform public.deposit(gen_random_uuid(), '{"egg": -3}', 0); assert false, 'negative';
   exception when others then assert sqlerrm = 'bad_quantity', sqlerrm; end;
+  r := public.deposit(gen_random_uuid(), '{"egg": 0}'::jsonb || '{"egg": 1.0}'::jsonb, 0);   -- Godot sends 1.0
+  assert r ->> 'ok' = 'true', 'whole-number floats accepted';
+  perform public.collect(gen_random_uuid());
+  perform public.deposit(gen_random_uuid(), '{"egg": 10}', 0);
   begin perform public.deposit(gen_random_uuid(), '{"egg": 1.5}', 0); assert false, 'fraction';
   exception when others then assert sqlerrm = 'bad_quantity', sqlerrm; end;
   -- price limits: egg base 12 -> 6..36
@@ -70,7 +75,13 @@ end $$;
 
 -- Friends, help, offers
 do $$ declare b_code text; r jsonb; oid bigint; begin
-  b_code := (select friend_code from public.profiles where id = '00000000-0000-0000-0000-0000000000b2');
+  b_code := current_setting('harvest.bcode');
+  begin
+    perform friend_code from public.profiles limit 1;
+    assert false, 'friend codes must not be directly readable';
+  exception when insufficient_privilege then null; end;
+  assert (select count(*) from public.profiles) = 3, 'names/levels still readable';
+  assert public.my_profile() ->> 'friend_code' ~ '^[A-HJ-NP-Z2-9]{8}$', 'own code via RPC';
   begin perform public.send_offer('00000000-0000-0000-0000-0000000000b2', '{}', 10, '{}', 0); assert false, 'need friends';
   exception when others then assert sqlerrm = 'not_friends', sqlerrm; end;
   perform public.add_friend(lower(b_code));

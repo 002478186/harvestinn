@@ -55,3 +55,11 @@ func test_event_contribution_and_reward() -> bool:
 	eq(m.s["decor"][-1]["id"], "decor_scarecrow", "decor reward")
 	eq(m.claim_event("harvest_moon", oct), "owned", "once per year")
 	return true
+
+func test_event_key_uses_local_year_consistently() -> bool:
+	# Dec 31 and Jan 3 of the same winter must share one progress key (no double reward).
+	var m := GameModel.new_game(0.0)
+	var dec := Time.get_unix_time_from_datetime_string("2026-12-31T12:00:00")
+	var jan := Time.get_unix_time_from_datetime_string("2027-01-03T12:00:00")
+	truthy(m.event_progress("winter_cozy", dec) == m.event_progress("winter_cozy", jan), "same winter, same progress")
+	return true

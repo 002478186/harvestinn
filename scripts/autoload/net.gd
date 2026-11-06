@@ -189,8 +189,10 @@ func process_outbox() -> void:
 			r = await call_rpc("deposit", {"p_request_id": op["id"], "p_items": op["items"], "p_coins": op["coins"]})
 		else:
 			r = await call_rpc("collect", {"p_request_id": op["id"]})
-		if r["code"] == 0:
-			return                                   # offline: keep for later
+		# Only a 200 or a business error (4xx with a message) is final. Offline, 5xx and
+		# auth hiccups may have committed server-side: keep the op and retry the same id.
+		if r["code"] != 200 and (r["code"] == 0 or r["code"] >= 500 or r["code"] == 401 or err(r) in ["retry", "rate_limited", "server_error"]):
+			return
 		m.finish_op(op["id"], r["data"] if r["code"] == 200 and r["data"] is Dictionary else {"error": err(r)})
 	Game.save()
 

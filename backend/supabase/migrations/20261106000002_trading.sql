@@ -169,11 +169,13 @@ revoke insert, update, delete on public.item_rules, public.wallets, public.escro
 
 -- ------------------------------------------------------------------ helpers
 create or replace function private.me()
-returns uuid language plpgsql stable set search_path = '' as $$
+returns uuid language plpgsql volatile set search_path = '' as $$
 declare uid uuid := (select auth.uid());
 begin
   if uid is null then raise exception 'not_authenticated'; end if;
   if exists (select 1 from public.profiles where id = uid and is_banned) then raise exception 'banned'; end if;
+  -- one mutating call per player at a time, so slot/help/rate counts can't be raced
+  perform pg_advisory_xact_lock(hashtext(uid::text));
   return uid;
 end $$;
 
@@ -197,6 +199,7 @@ begin
   if not exists (select 1 from public.item_rules where item = p_item) then raise exception 'unknown_item'; end if;
   insert into public.escrow (user_id, item, qty) values (p_uid, p_item, 0) on conflict do nothing;
   select qty into cur from public.escrow where user_id = p_uid and item = p_item for update;
+  if cur is null then raise exception 'retry';  end if;       -- row vanished under a concurrent collect
   if cur + p_qty < 0 then raise exception 'not_enough_items'; end if;
   update public.escrow set qty = qty + p_qty where user_id = p_uid and item = p_item;
 end $$;
@@ -208,6 +211,7 @@ begin
   if p_coins = 0 then return; end if;
   insert into public.wallets (user_id) values (p_uid) on conflict do nothing;
   select coins into cur from public.wallets where user_id = p_uid for update;
+  if cur is null then raise exception 'retry'; end if;
   if cur + p_coins < 0 then raise exception 'not_enough_coins'; end if;
   update public.wallets set coins = coins + p_coins where user_id = p_uid;
 end $$;
@@ -221,7 +225,7 @@ begin
   if (select count(*) from jsonb_object_keys(p_items)) > 20 then raise exception 'bad_items'; end if;
   for k, v in select * from jsonb_each(p_items) loop
     if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric <> floor((v #>> '{}')::numeric)
-       or (v #>> '{}')::bigint < 1 or (v #>> '{}')::bigint > 999 then
+       or (v #>> '{}')::numeric::bigint < 1 or (v #>> '{}')::numeric::bigint > 999 then
       raise exception 'bad_quantity';
     end if;
     if not exists (select 1 from public.item_rules where item = k) then raise exception 'unknown_item'; end if;
@@ -263,14 +267,14 @@ begin
   perform private.rate_limit(uid, 'deposit', 30);
   perform private.check_items(p_items);
   if p_coins < 0 then raise exception 'bad_quantity'; end if;
-  -- coin cap grows with level: 2,000 + 1,000 per level per day
-  coin_cap := 2000 + 1000 * (select level from public.profiles where id = uid);
+  -- flat daily coin cap: profiles.level comes from the client save, so it can't size this
+  coin_cap := 20000;
   for k, v in select * from jsonb_each(p_items) loop
     insert into private.deposits_daily (user_id, day, item, qty) values (uid, current_date, k, 0) on conflict do nothing;
-    update private.deposits_daily set qty = qty + (v #>> '{}')::bigint
+    update private.deposits_daily set qty = qty + (v #>> '{}')::numeric::bigint
       where user_id = uid and day = current_date and item = k returning qty into day_total;
     if day_total > item_cap then raise exception 'deposit_cap'; end if;
-    perform private.escrow_add(uid, k, (v #>> '{}')::bigint);
+    perform private.escrow_add(uid, k, (v #>> '{}')::numeric::bigint);
   end loop;
   if p_coins > 0 then
     insert into private.deposits_daily (user_id, day, item, qty) values (uid, current_date, 'coins', 0) on conflict do nothing;
@@ -301,7 +305,7 @@ begin
   perform private.rate_limit(uid, 'collect', 20);
   select coalesce(jsonb_object_agg(item, qty), '{}') into items
     from (select item, qty from public.escrow where user_id = uid and qty > 0 for update) e;
-  delete from public.escrow where user_id = uid;
+  update public.escrow set qty = 0 where user_id = uid and qty > 0;
   select coalesce((select w.coins from public.wallets w where user_id = uid for update), 0) into coins;
   update public.wallets set coins = 0 where user_id = uid;
   res := jsonb_build_object('ok', true, 'items', items, 'coins', coins);
@@ -452,7 +456,7 @@ $$;
 
 -- Read-only farm snapshot for a visit (friends only).
 create or replace function public.visit_farm(p_friend uuid)
-returns jsonb language plpgsql security definer stable set search_path = '' as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare uid uuid := private.me();
 begin
   if not private.are_friends(uid, p_friend) then raise exception 'not_friends'; end if;
@@ -511,7 +515,7 @@ begin
   end if;
   -- what I give is held now, so the offer can't bounce later
   for k, v in select * from jsonb_each(p_give_items) loop
-    perform private.escrow_add(uid, k, -((v #>> '{}')::bigint));
+    perform private.escrow_add(uid, k, -((v #>> '{}')::numeric::bigint));
   end loop;
   perform private.wallet_add(uid, -p_give_coins);
   insert into public.trade_offers (from_user, to_user, give_items, give_coins, want_items, want_coins)
@@ -526,7 +530,7 @@ returns void language plpgsql set search_path = '' as $$
 declare k text; v jsonb;
 begin
   for k, v in select * from jsonb_each(o.give_items) loop
-    perform private.escrow_add(o.from_user, k, (v #>> '{}')::bigint);
+    perform private.escrow_add(o.from_user, k, (v #>> '{}')::numeric::bigint);
   end loop;
   perform private.wallet_add(o.from_user, o.give_coins);
 end $$;
@@ -547,13 +551,13 @@ begin
   end if;
   -- accepter pays what is wanted (raises if they don't have it), then both sides receive
   for k, v in select * from jsonb_each(o.want_items) loop
-    perform private.escrow_add(uid, k, -((v #>> '{}')::bigint));
-    perform private.escrow_add(o.from_user, k, (v #>> '{}')::bigint);
+    perform private.escrow_add(uid, k, -((v #>> '{}')::numeric::bigint));
+    perform private.escrow_add(o.from_user, k, (v #>> '{}')::numeric::bigint);
   end loop;
   perform private.wallet_add(uid, -o.want_coins);
   perform private.wallet_add(o.from_user, o.want_coins);
   for k, v in select * from jsonb_each(o.give_items) loop
-    perform private.escrow_add(uid, k, (v #>> '{}')::bigint);
+    perform private.escrow_add(uid, k, (v #>> '{}')::numeric::bigint);
   end loop;
   perform private.wallet_add(uid, o.give_coins);
   update public.trade_offers set status = 'accepted', resolved_at = now() where id = o.id;

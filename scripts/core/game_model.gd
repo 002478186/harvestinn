@@ -694,6 +694,9 @@ func buy_cosmetic(id: String, x := 0, y := 0) -> String:
 # Net retries the same id until the server answers; refused deposits are refunded.
 
 func queue_deposit(items: Dictionary, coins: int) -> String:
+	var whole := {}
+	for k in items: whole[k] = int(items[k])     # JSON may hand us 5.0
+	items = whole
 	if not has_items(items): return "missing_items"
 	if int(s["coins"]) < coins: return "no_coins"
 	remove_items(items)
@@ -705,7 +708,9 @@ func queue_deposit(items: Dictionary, coins: int) -> String:
 
 func queue_collect() -> void:
 	if s["outbox"].any(func(o): return o["kind"] == "collect"): return
-	s["outbox"].append({"id": TradeRules.uuid(), "kind": "collect"})
+	var op := {"id": TradeRules.uuid(), "kind": "collect"}
+	s["outbox"].append(op)
+	event.emit("outbox", op)          # saved before the request goes out
 
 ## Applies the server's answer for an outbox op. `result` is the RPC data, or {"error": code}.
 func finish_op(op_id: String, result: Dictionary) -> void:
@@ -902,7 +907,8 @@ static func active_events(now: float) -> Array:
 ## Progress key includes the year so the event can be done again next year.
 func _event_key(id: String, now: float) -> String:
 	var e: Dictionary = GameData.events()[id]
-	var year: int = Time.get_date_dict_from_unix_time(int(now))["year"]
+	var bias: float = Time.get_time_zone_from_system().get("bias", 0) * 60.0
+	var year: int = Time.get_date_dict_from_unix_time(int(now + bias))["year"]   # local year, like _mmdd
 	if e["start"] > e["end"] and _mmdd(now) <= e["end"]:
 		year -= 1                     # January part of a December event counts as last year's
 	return "%s:%d" % [id, year]

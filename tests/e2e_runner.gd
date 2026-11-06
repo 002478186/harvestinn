@@ -76,8 +76,9 @@ func _initialize() -> void:
 	check(int(a.s["flags"]["cloud_rev"]) >= 2, "kept this device's save")
 
 	# --- friends + help
-	var codes: Dictionary = await net.get_rows("profiles", "select=friend_code&id=eq." + net.user_id())
-	var a_code: String = codes["data"][0]["friend_code"]
+	var a_code: String = (await net.call_rpc("my_profile"))["data"]["friend_code"]
+	var leak: Dictionary = await net.get_rows("profiles", "select=friend_code,farm_snapshot")
+	check(leak["code"] != 200, "profiles: friend codes / snapshots not readable directly")
 	net.session = {}
 	game.set_model(GameModel.new_game(game.now()))
 	await net.connect_now()
