@@ -17,7 +17,7 @@ func test_plant_and_harvest_through_ui() -> bool:
 	main._on_plot(0)
 	eq(game.model.s["plots"][0]["crop"], "", "harvested")
 	eq(game.model.count("wheat"), 6, "wheat in barn")
-	for screen in ["barn", "shop", "settings"]:
+	for screen in ["barn", "shop", "settings", "market", "orders"]:
 		main._on_nav(screen)
 		truthy(main.hud.sheet_open(), screen + " opens")
 	main._on_nav("inn")
@@ -30,9 +30,13 @@ func test_plant_and_harvest_through_ui() -> bool:
 	truthy(not main.inn.visible, "back to farm")
 	game.model.s["coins"] = 1000
 	game.model.s["level"] = 4
+	game.model.tick(game.now())
 	eq(game.model.build("mill"), "", "build mill")
 	main._on_building("mill")
 	truthy(main.hud.sheet_open(), "mill sheet opens")
+	Screens.shop(main, "farm")
+	Screens.shop(main, "style")
+	Screens.market(main, "online")
 	Screens.avatar_editor(main)
 	Screens.cast(main)
 	truthy(main.hud.sheet_open(), "cast opens")

@@ -249,7 +249,19 @@ UI = {
 }
 
 
+DECOR = {
+    "decor_fence": f'<path d="M10 70 H118 M10 100 H118" stroke="#FFFFFF" stroke-width="12"/><path d="M10 70 H118 M10 100 H118" fill="none" {o(3)}/>' + "".join(f'<path d="M{x} 118 V44 L{x+10} 32 L{x+20} 44 V118 Z" fill="#FFFFFF" {o(4)}/>' for x in (10, 40, 70, 100)),
+    "decor_flowerbed": f'<ellipse cx="64" cy="96" rx="56" ry="22" fill="#8A5A3B" {o(5)}/>' + "".join(f'<circle cx="{x}" cy="{y}" r="12" fill="{c}" {o(3)}/><circle cx="{x}" cy="{y}" r="4" fill="#FFD86B"/>' for x, y, c in [(30, 82, "#E83A5F"), (52, 72, "#C97BB5"), (76, 80, "#F2B84B"), (98, 74, "#E83A5F"), (64, 92, "#8FD3F4")]),
+    "decor_scarecrow": f'<path d="M64 124 V40" {o(8)}/><path d="M24 62 H104" {o(8)}/><path d="M40 60 H88 L82 100 H46 Z" fill="#6BAA4B" {o(4)}/><circle cx="64" cy="34" r="20" fill="#F2D7A6" {o(4)}/><circle cx="57" cy="32" r="3" fill="{INK}"/><circle cx="71" cy="32" r="3" fill="{INK}"/><path d="M56 42 Q64 48 72 42" fill="none" {o(3)}/><path d="M36 20 H92 L80 4 H48 Z" fill="#E8C15A" {o(4)}/>',
+    "decor_well": f'<rect x="24" y="64" width="80" height="56" rx="10" fill="#9AA0A6" {o(5)}/><path d="M24 84 H104 M24 102 H104" stroke="#7C8288" stroke-width="5"/><path d="M30 64 V24 M98 64 V24" {o(6)}/><path d="M18 30 L64 8 L110 30 Z" fill="#C8553D" {o(5)}/><ellipse cx="64" cy="66" rx="34" ry="8" fill="#4AA8D8" {o(3)}/>',
+    "decor_lamp": f'<path d="M64 124 V44" {o(8)}/><rect x="46" y="16" width="36" height="36" rx="8" fill="#FFD86B" {o(5)}/><path d="M40 16 H88 L64 4 Z" fill="{INK}"/><ellipse cx="64" cy="122" rx="22" ry="5" fill="#000" opacity="0.13"/>',
+    "decor_pond": f'<ellipse cx="64" cy="76" rx="58" ry="36" fill="#4AA8D8" {o(5)}/><ellipse cx="52" cy="70" rx="14" ry="10" fill="#FFFFFF" {o(3)}/><circle cx="62" cy="62" r="7" fill="#FFFFFF" {o(3)}/><path d="M68 62 L76 64 L68 66 Z" fill="#F2B84B"/><ellipse cx="90" cy="88" rx="10" ry="5" fill="#7CC35A" {o(3)}/>',
+}
+
+
 def main():
+    for k, body in DECOR.items():
+        save(f"decor/{k}.svg", svg(body))
     items, crops = load("items.json"), load("crops.json")
     tiles()
     for iid, info in items.items():

@@ -21,7 +21,7 @@ func test_tables_limit_guests_and_no_backlog() -> bool:
 	m.tick(0.0)
 	m.tick(100000.0)
 	eq(m.inn()["guests"].size(), 1, "1 table")
-	m.s["reputation"] = 80
+	m.s["reputation"] = 40
 	m.tick(100000.0 + 90 * 5)
 	eq(m.inn()["guests"].size(), 3, "Village Favourite has 3 tables")
 	return true
@@ -29,7 +29,7 @@ func test_tables_limit_guests_and_no_backlog() -> bool:
 func test_orders_only_use_unlocked_meals_and_tip_grows() -> bool:
 	m.s["stats"]["served"] = 5
 	m.s["level"] = 4
-	m.s["reputation"] = 200
+	m.s["reputation"] = 120
 	m.tick(0.0)
 	m.tick(1000.0)
 	for g in m.inn()["guests"]:

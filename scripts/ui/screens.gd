@@ -17,6 +17,8 @@ static func open(main, screen: String) -> void:
 		"barn": barn(main)
 		"settings": settings(main)
 		"shop": shop(main)
+		"market": market(main)
+		"orders": deliveries(main)
 		"inn": main.show_farm() if main.inn.visible else main.show_inn()
 		_: main.hud.toast(tr_("Coming soon"))
 
@@ -343,6 +345,125 @@ static func shop(main, tab := "buildings") -> void:
 	else:
 		shop_extra(main, body, tab)
 
-## Farm upgrades + cosmetics tabs (filled in by the market/shop milestone).
-static func shop_extra(_main, body: VBoxContainer, _tab: String) -> void:
+static func shop_extra(main, body: VBoxContainer, tab: String) -> void:
+	var m: GameModel = Game.model
+	var again := func(): shop(main, tab)
+	var act := func(err: String):
+		if err != "": main.say_error(err)
+		else: Sfx.play("coins"); again.call()
+	if tab == "farm":
+		var ex := m.next_land()
+		if not ex.is_empty():
+			var ok := m.is_unlocked(ex["unlock_level"])
+			body.add_child(row(UI.icon("farm"), tr_("Land expansion → %d×%d plots") % [int(ex["cols"]), int(ex["rows"])],
+				tr_("%d coins") % int(ex["cost"]) if ok else tr_("Unlocks at level %d") % int(ex["unlock_level"]),
+				tr_("Buy") if ok else LOCK, func(): act.call(m.buy_land()), ok, UI.MEADOW))
+		for kind in ["silo", "barn"]:
+			var levels: Array = GameData.economy()["storage"][kind]
+			var next := int(m.s["storage"][kind]) + 1
+			if next < levels.size():
+				body.add_child(row(UI.icon("barn"), tr_("%s: %d → %d") % [tr_(kind.capitalize()), m.storage_cap(kind), int(levels[next]["capacity"])],
+					tr_("%d coins") % int(levels[next]["cost"]), tr_("Upgrade"), func(): act.call(m.upgrade_storage(kind)), true, UI.MEADOW))
+	for cid in GameData.cosmetics():
+		var c: Dictionary = GameData.cosmetics()[cid]
+		var slot: String = c["slot"]
+		if (tab == "farm") != (slot == "decor"): continue
+		var ok := m.is_unlocked(c["unlock_level"])
+		var owned := slot != "decor" and m.owns(cid)
+		var price := (tr_("%d gems") % int(c["cost_gems"])) if c.has("cost_gems") else (tr_("%d coins") % int(c["cost"]))
+		var sub := tr_("Owned") if owned else (price if ok else tr_("Unlocks at level %d") % int(c["unlock_level"]))
+		if slot == "furniture": sub += " · +%d %s" % [int(c["reputation"]), tr_("reputation")]
+		var tex: Texture2D = UI.tex("res://assets/art/decor/%s.svg" % cid) if slot == "decor" else (UI.tex("res://assets/art/avatar/hat_%s.svg" % cid) if slot == "hat" else UI.item_tex("blanket" if slot == "furniture" else "sweater"))
+		body.add_child(row(tex, tr_(c["name"]), sub, tr_("Buy") if ok and not owned else (LOCK if not ok else tr_("Owned")), func():
+			var t: Vector2i = main.farm.free_tile()
+			act.call(m.buy_cosmetic(cid, t.x, t.y)), ok and not owned, UI.MEADOW))
+
+# ------------------------------------------------------------------ market + deliveries
+
+static func market(main, tab := "village") -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Market"), 0.85)
+	var tabs := HBoxContainer.new()
+	for t in [["village", "Village stall"], ["online", "Online market"]]:
+		var b := UI.button(tr_(t[1]), func(): market(main, t[0]), UI.MEADOW if t[0] == tab else UI.WOOD_DARK)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(b)
+	body.add_child(tabs)
+	if tab == "online":
+		online_market(main, body)
+		return
+	var head := HBoxContainer.new()
+	head.add_child(Portrait.make("merchant", 110))
+	head.add_child(UI.label(Dialogue.text(GameData.characters()["merchant"]["lines"]["greet"].pick_random(), m.s["name"]), 24))
+	head.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(head)
+	var now := Game.now()
+	var ids: Array = m.s["inv"].keys()
+	ids.sort()
+	if ids.is_empty():
+		body.add_child(UI.label(tr_("Nothing to sell yet. Harvest something!"), 26))
+	for id in ids:
+		var price := GameModel.market_price(id, now)
+		var pct := int(round((GameModel.demand(id, GameModel.day_of(now)) - 1.0) * 100))
+		var trend := ("+%d%%" % pct) if pct >= 0 else ("%d%%" % pct)
+		var n := m.count(id)
+		var p := row(UI.item_tex(id), "%s ×%d" % [tr_(GameData.item_name(id)), n], tr_("%d coins each · today %s") % [price, trend], tr_("Sell 1"),
+			func(): _sell(main, id, 1, tab), true, UI.MEADOW)
+		var all := UI.button(tr_("All"), func(): _sell(main, id, mini(m.count(id), 200 - m.sold_today(id, Game.now())), tab), UI.WOOD_DARK)
+		p.get_child(0).add_child(all)
+		body.add_child(p)
+
+static func _sell(main, id: String, qty: int, tab: String) -> void:
+	var err: String = Game.model.sell(id, qty, Game.now())
+	if err != "":
+		main.say_error(err)
+		return
+	Sfx.play("coins")
+	main.hud.fly(UI.icon("coin"), main.hud.root.get_viewport_rect().size / 2, "coins")
+	market(main, tab)
+
+## Filled in by the online trading milestone.
+static func online_market(_main, body: VBoxContainer) -> void:
 	body.add_child(UI.label(tr_("Coming soon"), 26))
+
+static func deliveries(main) -> void:
+	var m: GameModel = Game.model
+	if not m.is_unlocked(GameData.economy()["features"]["delivery_board"]):
+		main.say_error("locked")
+		return
+	var body: VBoxContainer = main.hud.sheet(tr_("Village orders"), 0.8)
+	var now := Game.now()
+	m.refresh_deliveries(now)
+	for i in m.s["deliveries"].size():
+		var d: Dictionary = m.s["deliveries"][i]
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UI.box(Color.WHITE, 20, 3))
+		var v := VBoxContainer.new()
+		p.add_child(v)
+		if d["items"].is_empty():
+			v.add_child(UI.label(tr_("New order in %s") % UI.fmt_time(float(d["ready_at"]) - now), 26, UI.WOOD_DARK))
+			body.add_child(p)
+			continue
+		var flow := HFlowContainer.new()
+		for it in d["items"]:
+			var have := m.count(it)
+			var need := int(d["items"][it])
+			var h := HBoxContainer.new()
+			h.add_child(UI.icon_rect(UI.item_tex(it), 64))
+			h.add_child(UI.label("%d/%d" % [mini(have, need), need], 26, UI.MEADOW if have >= need else UI.RED, 700, false))
+			flow.add_child(h)
+		v.add_child(flow)
+		var r := HBoxContainer.new()
+		var go := UI.button(tr_("Deliver · %d coins · %d XP") % [int(d["coins"]), int(d["xp"])], func():
+			var err := m.fulfill_delivery(i, Game.now())
+			if err != "": main.say_error(err)
+			else:
+				Sfx.play("coins")
+				main.hud.fly(UI.icon("coin"), main.hud.root.get_viewport_rect().size / 2, "coins")
+				deliveries(main), UI.MEADOW)
+		go.disabled = not m.has_items(d["items"])
+		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		r.add_child(go)
+		r.add_child(UI.button(tr_("Skip"), func(): m.skip_delivery(i, Game.now()); deliveries(main), UI.WOOD_DARK))
+		v.add_child(r)
+		body.add_child(p)

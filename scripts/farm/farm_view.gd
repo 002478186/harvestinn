@@ -283,3 +283,13 @@ func _set_zoom(z: float) -> void:
 
 func _clamp_cam() -> void:
 	cam.position = cam.position.clamp(Vector2.ZERO, Vector2(WORLD) * TILE)
+
+## First free 1x1 tile scanning from the top-left (for placing new decorations).
+func free_tile() -> Vector2i:
+	var occ := _occupied("")
+	for y in WORLD.y:
+		for x in WORLD.x:
+			var r := Rect2i(x, y, 1, 1)
+			if not occ.any(func(o): return r.intersects(Rect2i(int(o[0]), int(o[1]), int(o[2]), int(o[3])))):
+				return Vector2i(x, y)
+	return Vector2i.ZERO

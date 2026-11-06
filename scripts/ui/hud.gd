@@ -26,6 +26,7 @@ func _ready() -> void:
 	var safe := _safe_margins()
 	_build_top(safe)
 	_build_bottom(safe)
+	_build_side(safe)
 	_toast = UI.label("", 30, Color.WHITE)
 	_toast.add_theme_color_override("font_outline_color", UI.INK)
 	_toast.add_theme_constant_override("outline_size", 10)
@@ -103,6 +104,26 @@ func _build_bottom(safe: Vector2) -> void:
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bar.add_child(b)
 		_targets[item[0]] = b
+
+## Right-hand column for secondary screens (orders, daily reward, achievements).
+var side := VBoxContainer.new()
+
+func _build_side(safe: Vector2) -> void:
+	side.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	side.offset_left = -112
+	side.offset_right = -12
+	side.offset_top = -40
+	root.add_child(side)
+	add_side_button("orders", "Orders")
+
+func add_side_button(id: String, tip: String) -> void:
+	var b := UI.button("", func(): nav.emit(id), UI.CREAM, UI.icon(id))
+	b.tooltip_text = tip
+	b.custom_minimum_size = Vector2(96, 96)
+	b.add_theme_constant_override("icon_max_width", 60)
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	side.add_child(b)
+	_targets[id] = b
 
 func _on_event(name: String, d: Dictionary) -> void:
 	match name:

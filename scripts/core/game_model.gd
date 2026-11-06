@@ -226,6 +226,8 @@ func offline_summary(since: float, now: float) -> Dictionary:
 ## Periodic world update (called every second by the Game autoload and on load).
 func tick(now: float) -> void:
 	tick_inn(now)
+	if is_unlocked(GameData.economy()["features"]["delivery_board"]):
+		refresh_deliveries(now)
 
 # ------------------------------------------------------------ tutorial
 
@@ -404,9 +406,13 @@ func add_reputation(n: int) -> void:
 	if int(rep_tier()["index"]) > before:
 		event.emit("rep_tier", rep_tier())
 
-## Kitchen meals the player can cook at their level.
+## Kitchen meals the player can cook now: unlocked, and every ingredient is something
+## they can produce (so guests never order a meal that needs a workshop you don't own).
 func meals_available() -> Array[String]:
-	return GameData.recipes_for("kitchen").filter(func(r): return is_unlocked(GameData.recipes()[r]["unlock_level"]))
+	var can := producible()
+	return GameData.recipes_for("kitchen").filter(func(r):
+		var rec: Dictionary = GameData.recipes()[r]
+		return is_unlocked(rec["unlock_level"]) and rec["inputs"].keys().all(func(i): return i in can))
 
 func tick_inn(now: float) -> void:
 	var d := inn()
@@ -519,4 +525,158 @@ func collect_room(i: int, now: float) -> String:
 	inn()["rooms"][i]["collected"] = now
 	add_coins(n)
 	event.emit("collect", {"room": i, "coins": n})
+	return ""
+
+# ------------------------------------------------------------ local market
+
+static func day_of(now: float) -> int:
+	return int(floor(now / 86400.0))
+
+## Today's demand multiplier for an item: deterministic per (item, day), so every
+## player sees the same prices and they change at midnight UTC.
+static func demand(item: String, day: int) -> float:
+	var m: Dictionary = GameData.economy()["market"]
+	var h := ("%s:%d" % [item, day]).hash()
+	var t := float(posmod(h, 1000)) / 999.0
+	return lerpf(float(m["demand_min"]), float(m["demand_max"]), t)
+
+static func market_price(item: String, now: float) -> int:
+	return maxi(1, int(round(GameData.item_price(item) * demand(item, day_of(now)))))
+
+func sold_today(item: String, now: float) -> int:
+	var mk: Dictionary = s["market"]
+	if int(mk.get("day", -1)) != day_of(now):
+		mk["day"] = day_of(now)
+		mk["sold"] = {}
+	return int(mk["sold"].get(item, 0))
+
+func sell(item: String, qty: int, now: float) -> String:
+	if qty <= 0 or count(item) < qty: return "missing_items"
+	var cap := int(GameData.economy()["market"]["sell_cap_per_item_per_day"])
+	if sold_today(item, now) + qty > cap: return "sell_cap"
+	var coins := market_price(item, now) * qty
+	remove_items({item: qty})
+	s["market"]["sold"][item] = sold_today(item, now) + qty
+	add_coins(coins)
+	stat("sold", qty)
+	event.emit("sold", {"item": item, "qty": qty, "coins": coins})
+	return ""
+
+# ------------------------------------------------------------ delivery board
+
+## Items the player can currently make: unlocked crops + outputs of unlocked recipes in owned buildings.
+func producible() -> Array[String]:
+	var out: Array[String] = []
+	for c in GameData.crops():
+		if is_unlocked(GameData.crops()[c]["unlock_level"]): out.append(c)
+	for rid in GameData.recipes():
+		var r: Dictionary = GameData.recipes()[rid]
+		if is_unlocked(r["unlock_level"]) and owns_building(r["building"]):
+			for o in r["outputs"]:
+				if not o in out: out.append(o)
+	for a in s["animals"]:
+		for pr in GameData.animals()[GameData.buildings()[a]["animal"]]["products"]:
+			if not pr["item"] in out and not s["animals"][a].is_empty(): out.append(pr["item"])
+	return out
+
+func refresh_deliveries(now: float) -> void:
+	var cfg: Dictionary = GameData.economy()["delivery"]
+	var d: Array = s["deliveries"]
+	while d.size() < int(cfg["slots"]):
+		d.append({"items": {}, "ready_at": now})
+	var changed := false
+	for i in d.size():
+		if d[i]["items"].is_empty() and float(d[i]["ready_at"]) <= now:
+			d[i] = _new_delivery(now)
+			changed = true
+	if changed:
+		event.emit("delivery", {})
+
+func _new_delivery(now: float) -> Dictionary:
+	var cfg: Dictionary = GameData.economy()["delivery"]
+	var r := _rng()
+	var pool := producible()
+	var items := {}
+	var kinds := mini(r.randi_range(1, int(cfg["max_kinds"])), pool.size())
+	for k in kinds:
+		var it: String = pool[r.randi_range(0, pool.size() - 1)]
+		items[it] = int(items.get(it, 0)) + r.randi_range(int(cfg["min_qty"]), int(cfg["max_qty"]))
+	_save_rng(r)
+	var value := 0
+	for it in items: value += GameData.item_price(it) * int(items[it])
+	return {"items": items, "coins": int(round(value * float(cfg["reward_mult"]))),
+		"xp": maxi(1, int(round(value * float(cfg["xp_mult"])))), "ready_at": now}
+
+func fulfill_delivery(i: int, now: float) -> String:
+	var d: Dictionary = s["deliveries"][i]
+	if d["items"].is_empty(): return "not_ready"
+	if not remove_items(d["items"]): return "missing_items"
+	add_coins(int(d["coins"]))
+	add_xp(int(d["xp"]))
+	stat("deliveries")
+	s["deliveries"][i] = {"items": {}, "ready_at": now + float(GameData.economy()["delivery"]["refresh_seconds"])}
+	event.emit("delivery", {"done": i})
+	return ""
+
+func skip_delivery(i: int, now: float) -> void:
+	s["deliveries"][i] = {"items": {}, "ready_at": now + float(GameData.economy()["delivery"]["refresh_seconds"])}
+	event.emit("delivery", {})
+
+# ------------------------------------------------------------ shop: storage, land, cosmetics
+
+func upgrade_storage(kind: String) -> String:
+	var levels: Array = GameData.economy()["storage"][kind]
+	var next := int(s["storage"][kind]) + 1
+	if next >= levels.size(): return "max_level"
+	if not spend(int(levels[next]["cost"])): return "no_coins"
+	s["storage"][kind] = next
+	event.emit("storage", {"kind": kind})
+	return ""
+
+func next_land() -> Dictionary:
+	var ex: Array = GameData.economy()["land_expansions"]
+	return ex[int(s["land"])] if int(s["land"]) < ex.size() else {}
+
+## Grows the plot grid; existing crops keep their (column, row).
+func buy_land() -> String:
+	var ex := next_land()
+	if ex.is_empty(): return "max_level"
+	if not is_unlocked(ex["unlock_level"]): return "locked"
+	if not spend(int(ex["cost"])): return "no_coins"
+	var old_cols := int(s["cols"])
+	var old: Array = s["plots"]
+	var cols := int(ex["cols"])
+	var rows := int(ex["rows"])
+	var plots := []
+	for i in cols * rows:
+		plots.append(_empty_plot())
+	for i in old.size():
+		plots[(i / old_cols) * cols + i % old_cols] = old[i]
+	s["plots"] = plots
+	s["cols"] = cols
+	s["rows"] = rows
+	s["land"] = int(s["land"]) + 1
+	event.emit("land", {})
+	return ""
+
+## Buys an outfit/hat/furniture, or a decoration placed at tile (x, y).
+func buy_cosmetic(id: String, x := 0, y := 0) -> String:
+	var c: Dictionary = GameData.cosmetics().get(id, {})
+	if c.is_empty(): return "unknown"
+	if not is_unlocked(c["unlock_level"]): return "locked"
+	if c["slot"] != "decor" and owns(id): return "owned"
+	if c.has("cost_gems"):
+		if int(s["gems"]) < int(c["cost_gems"]): return "no_gems"
+		add_gems(-int(c["cost_gems"]))
+	elif not spend(int(c["cost"])):
+		return "no_coins"
+	if c["slot"] == "decor":
+		s["decor"].append({"id": id, "x": x, "y": y})
+		event.emit("decor", {})
+	else:
+		s["owned"].append(id)
+		if c["slot"] == "furniture":
+			add_reputation(int(c.get("reputation", 0)))
+	stat("purchases")
+	event.emit("purchase", {"id": id})
 	return ""

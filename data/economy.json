@@ -35,11 +35,11 @@
     "guest_interval_seconds": 90,
     "reputation_tiers": [
       {"reputation": 0,    "tables": 1, "max_order_items": 1, "name": "Roadside Rest"},
-      {"reputation": 20,   "tables": 2, "max_order_items": 2, "name": "Cozy Corner"},
-      {"reputation": 80,   "tables": 3, "max_order_items": 2, "name": "Village Favourite"},
-      {"reputation": 200,  "tables": 4, "max_order_items": 3, "name": "Valley Landmark"},
-      {"reputation": 450,  "tables": 5, "max_order_items": 3, "name": "Famous Inn"},
-      {"reputation": 900,  "tables": 6, "max_order_items": 3, "name": "Legendary Lodge"}
+      {"reputation": 10,   "tables": 2, "max_order_items": 2, "name": "Cozy Corner"},
+      {"reputation": 40,   "tables": 3, "max_order_items": 2, "name": "Village Favourite"},
+      {"reputation": 120,  "tables": 4, "max_order_items": 3, "name": "Valley Landmark"},
+      {"reputation": 300,  "tables": 5, "max_order_items": 3, "name": "Famous Inn"},
+      {"reputation": 700,  "tables": 6, "max_order_items": 3, "name": "Legendary Lodge"}
     ],
     "reputation_per_meal": 1,
     "guest_rooms": [
