@@ -6,6 +6,7 @@
 extends SceneTree
 
 func _initialize() -> void:
+	await process_frame  # let autoloads (Game, Sfx) enter the tree
 	var passed := 0
 	var failed := 0
 	var dir := DirAccess.open("res://tests")
@@ -17,13 +18,14 @@ func _initialize() -> void:
 	for f in files:
 		var script: GDScript = load("res://tests/" + f)
 		var suite: TestCase = script.new()
+		suite.tree = self
 		for m in suite.get_method_list():
 			var name: String = m["name"]
 			if not name.begins_with("test_"):
 				continue
 			suite.failures.clear()
 			suite.setup()
-			var ok = suite.call(name)
+			var ok = await suite.call(name)
 			if ok == true and suite.failures.is_empty():
 				passed += 1
 			else:

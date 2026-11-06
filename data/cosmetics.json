@@ -1,0 +1,27 @@
+{
+  "_doc": "Unlockable cosmetics. slot: outfit|hat (farmer avatar), decor (farm), furniture (inn; +reputation per hour of guests). cost in coins (or gems if cost_gems). unlock_level gates the shop.",
+  "outfit_overalls":  {"name": "Denim Overalls",    "slot": "outfit", "cost": 0,    "unlock_level": 1,  "color": "#4E7BB5"},
+  "outfit_flannel":   {"name": "Red Flannel",       "slot": "outfit", "cost": 0,    "unlock_level": 1,  "color": "#C8553D"},
+  "outfit_apron":     {"name": "Sunny Apron",       "slot": "outfit", "cost": 250,  "unlock_level": 6,  "color": "#F2B84B"},
+  "outfit_raincoat":  {"name": "Puddle Raincoat",   "slot": "outfit", "cost": 800,  "unlock_level": 12, "color": "#F5D33F"},
+  "outfit_knit":      {"name": "Cozy Knit Sweater", "slot": "outfit", "cost": 2500, "unlock_level": 24, "color": "#9C6ADE"},
+  "hat_none":         {"name": "No Hat",            "slot": "hat",    "cost": 0,    "unlock_level": 1,  "color": "#00000000"},
+  "hat_straw":        {"name": "Straw Hat",         "slot": "hat",    "cost": 0,    "unlock_level": 1,  "color": "#E8C15A"},
+  "hat_bandana":      {"name": "Bandana",           "slot": "hat",    "cost": 120,  "unlock_level": 4,  "color": "#D9302C"},
+  "hat_beanie":       {"name": "Wool Beanie",       "slot": "hat",    "cost": 600,  "unlock_level": 15, "color": "#3E7C3A"},
+  "hat_sunflower":    {"name": "Sunflower Crown",   "slot": "hat",    "cost_gems": 20,  "unlock_level": 11, "color": "#FFC21A"},
+
+  "decor_fence":      {"name": "Picket Fence",      "slot": "decor",  "cost": 20,   "unlock_level": 2,  "color": "#FFFFFF"},
+  "decor_flowerbed":  {"name": "Flower Bed",        "slot": "decor",  "cost": 60,   "unlock_level": 3,  "color": "#E83A5F"},
+  "decor_scarecrow":  {"name": "Friendly Scarecrow","slot": "decor",  "cost": 150,  "unlock_level": 5,  "color": "#E8C15A"},
+  "decor_well":       {"name": "Stone Well",        "slot": "decor",  "cost": 400,  "unlock_level": 9,  "color": "#9AA0A6"},
+  "decor_lamp":       {"name": "Lantern Post",      "slot": "decor",  "cost": 300,  "unlock_level": 13, "color": "#FFD86B"},
+  "decor_pond":       {"name": "Duck Pond",         "slot": "decor",  "cost": 1200, "unlock_level": 17, "color": "#4AA8D8"},
+
+  "furn_plant":       {"name": "Potted Fern",       "slot": "furniture", "cost": 80,   "unlock_level": 2,  "reputation": 1, "color": "#3FA34D"},
+  "furn_rug":         {"name": "Woven Rug",         "slot": "furniture", "cost": 300,  "unlock_level": 5,  "reputation": 2, "color": "#C97BB5"},
+  "furn_bookshelf":   {"name": "Bookshelf",         "slot": "furniture", "cost": 700,  "unlock_level": 9,  "reputation": 3, "color": "#8A5A3B"},
+  "furn_fireplace":   {"name": "Stone Fireplace",   "slot": "furniture", "cost": 2000, "unlock_level": 13, "reputation": 5, "color": "#E07A5F"},
+  "furn_piano":       {"name": "Old Piano",         "slot": "furniture", "cost": 5000, "unlock_level": 21, "reputation": 8, "color": "#4A2F1F"},
+  "furn_chandelier":  {"name": "Lantern Chandelier","slot": "furniture", "cost_gems": 60, "unlock_level": 27, "reputation": 10, "color": "#FFD86B"}
+}
