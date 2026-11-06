@@ -12,6 +12,14 @@ env:
   GODOT_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable"
 
 jobs:
+  backend-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Supabase migrations + SQL tests on local Postgres
+        run: PGBIN=$(ls -d /usr/lib/postgresql/*/bin | tail -1) backend/tests/run.sh
+
   test-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 40

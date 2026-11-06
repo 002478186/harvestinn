@@ -27,6 +27,7 @@ func _ready() -> void:
 	farm.fly.connect(hud.fly)
 	hud.nav.connect(_on_nav)
 	Game.event.connect(_on_event)
+	Net.cloud_conflict.connect(func(server): Screens.cloud_conflict(self, server))
 	for a in OS.get_cmdline_user_args():   # dev aid for screenshots: -- --screen=shop / --screen=b:mill
 		if a.begins_with("--screen="):
 			var v := a.substr(9)

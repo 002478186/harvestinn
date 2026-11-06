@@ -160,6 +160,7 @@ static func settings(main) -> void:
 	mus.button_pressed = Sfx.music_on
 	mus.toggled.connect(func(on): Sfx.set_audio(Sfx.sfx_on, on))
 	body.add_child(mus)
+	account_section(main, body)
 	body.add_child(UI.button(tr_("My Farmer"), func(): avatar_editor(main), UI.MEADOW))
 	body.add_child(UI.button(tr_("Villagers"), func(): cast(main), UI.WOOD_DARK))
 	if not m.tutorial_step().is_empty():
@@ -185,7 +186,9 @@ static func avatar_editor(main) -> void:
 		var err := m.set_player_name(name_edit.text)
 		if err == "name_short": main.say_error("Name is too short")
 		elif err == "name_blocked": main.say_error("Please choose a kinder name")
-		else: main.hud.toast(tr_("Nice to meet you, %s!") % m.s["name"]), UI.MEADOW))
+		else:
+			Net.call_rpc("set_display_name", {"p_name": m.s["name"]})
+			main.hud.toast(tr_("Nice to meet you, %s!") % m.s["name"]), UI.MEADOW))
 	body.add_child(name_row)
 	var redo := func(): avatar_editor(main)
 	_choice_row(body, tr_("Skin"), Avatar.SKINS.size(), func(i): return Color(Avatar.SKINS[i]), func(i): m.set_avatar("skin", i); redo.call())
@@ -467,3 +470,46 @@ static func deliveries(main) -> void:
 		r.add_child(UI.button(tr_("Skip"), func(): m.skip_delivery(i, Game.now()); deliveries(main), UI.WOOD_DARK))
 		v.add_child(r)
 		body.add_child(p)
+
+# ------------------------------------------------------------------ account + cloud
+
+static func account_section(main, body: VBoxContainer) -> void:
+	body.add_child(UI.label(tr_("Account"), 32, UI.RED, 600))
+	if not Net.configured():
+		body.add_child(UI.label(tr_("Offline build: online features are not set up (see backend/README.md)."), 22, UI.WOOD_DARK))
+		return
+	if not Net.online:
+		body.add_child(UI.label(tr_("You're offline. Your farm keeps working; we'll sync when you're back."), 22, UI.WOOD_DARK))
+		body.add_child(UI.button(tr_("Try to connect"), func():
+			await Net.connect_now()
+			settings(main), UI.SKY))
+		return
+	var guest := Net.is_guest()
+	body.add_child(UI.label(tr_("Signed in as a guest. Link an account so you never lose your farm.") if guest else tr_("Your account is linked. Progress is saved to the cloud."), 22))
+	if guest:
+		var h := HBoxContainer.new()
+		for prov in [["apple", "Sign in with Apple"], ["google", "Sign in with Google"]]:
+			var b := UI.button(tr_(prov[1]), func():
+				if await Net.link_identity(prov[0]) != "": main.say_error("Could not reach the sign-in page")
+				else: main.hud.toast(tr_("Finish signing in, then come back and tap Check")), UI.INK if prov[0] == "apple" else UI.SKY)
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.add_theme_font_size_override("font_size", 22)
+			h.add_child(b)
+		body.add_child(h)
+		body.add_child(UI.button(tr_("Check sign-in"), func():
+			await Net.refresh_user()
+			settings(main), UI.WOOD_DARK))
+	body.add_child(UI.button(tr_("Sync now"), func():
+		await Net.sync()
+		main.hud.toast(tr_("Synced")), UI.MEADOW))
+
+static func cloud_conflict(main, server: Dictionary) -> void:
+	main.hud.queue_popup(func():
+		var v: VBoxContainer = main.hud.popup(tr_("Two saves found"), UI.icon("settings"))
+		v.add_child(UI.label(tr_("This farm was played on another device. Which progress do you want to keep?"), 26))
+		v.add_child(UI.button(tr_("This device: %s") % CloudSync.summary(Game.model.s), func():
+			main.hud.close_popup(v)
+			Net.keep_local(server), UI.MEADOW))
+		v.add_child(UI.button(tr_("Cloud: %s") % CloudSync.summary(server.get("data", {})), func():
+			main.hud.close_popup(v)
+			Net.adopt(server), UI.SKY)))
