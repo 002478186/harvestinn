@@ -1,0 +1,45 @@
+# Godot
+.godot/
+.import/
+*.import.bak
+export.cfg
+export_credentials.cfg
+*.translation
+mono_crash.*.json
+
+# Build output
+build/
+builds/
+*.apk
+*.aab
+*.ipa
+*.pck
+*.zip
+android/build/
+
+# Signing / secrets — NEVER commit
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+*.cer
+.env
+.env.*
+!.env.example
+secrets/
+supabase/.temp/
+backend/supabase/.temp/
+backend/supabase/.branches/
+
+# OS / editor / tooling
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+node_modules/
+graphify-out/
+config/backend.json

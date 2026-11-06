@@ -1,0 +1,43 @@
+{
+  "_doc": "Recipes per building. inputs/outputs = item id -> quantity. seconds = real-time duration. kitchen = the Inn kitchen run by Chef Basil.",
+  "flour":          {"building": "mill",         "inputs": {"wheat": 3}, "outputs": {"flour": 1}, "seconds": 120,  "xp": 2,  "unlock_level": 4},
+  "animal_feed":    {"building": "mill",         "inputs": {"corn": 2, "wheat": 1}, "outputs": {"animal_feed": 3}, "seconds": 180, "xp": 2, "unlock_level": 9},
+  "sunflower_oil":  {"building": "mill",         "inputs": {"sunflower": 2}, "outputs": {"sunflower_oil": 1}, "seconds": 1200, "xp": 8, "unlock_level": 11},
+
+  "bread":          {"building": "bakery",       "inputs": {"flour": 2}, "outputs": {"bread": 1}, "seconds": 600,  "xp": 5,  "unlock_level": 6},
+  "corn_bread":     {"building": "bakery",       "inputs": {"flour": 1, "corn": 2}, "outputs": {"corn_bread": 1}, "seconds": 900, "xp": 7, "unlock_level": 7},
+  "pumpkin_pie":    {"building": "bakery",       "inputs": {"flour": 2, "pumpkin": 2, "egg": 2}, "outputs": {"pumpkin_pie": 1}, "seconds": 3600, "xp": 22, "unlock_level": 13},
+  "strawberry_pie": {"building": "bakery",       "inputs": {"flour": 2, "strawberry": 3, "butter": 1}, "outputs": {"strawberry_pie": 1}, "seconds": 2400, "xp": 20, "unlock_level": 15},
+  "cake":           {"building": "bakery",       "inputs": {"flour": 2, "egg": 3, "butter": 1, "cream": 1}, "outputs": {"cake": 1}, "seconds": 5400, "xp": 30, "unlock_level": 17},
+
+  "strawberry_jam": {"building": "jam_kitchen",  "inputs": {"strawberry": 3}, "outputs": {"strawberry_jam": 1}, "seconds": 900, "xp": 8, "unlock_level": 8},
+  "tomato_sauce":   {"building": "jam_kitchen",  "inputs": {"tomato": 3, "onion": 1, "herbs": 1}, "outputs": {"tomato_sauce": 1}, "seconds": 900, "xp": 9, "unlock_level": 9},
+  "blueberry_jam":  {"building": "jam_kitchen",  "inputs": {"blueberry": 3}, "outputs": {"blueberry_jam": 1}, "seconds": 1800, "xp": 14, "unlock_level": 16},
+
+  "butter":         {"building": "dairy",        "inputs": {"milk": 2}, "outputs": {"butter": 1}, "seconds": 600,  "xp": 5,  "unlock_level": 14},
+  "cream":          {"building": "dairy",        "inputs": {"milk": 2}, "outputs": {"cream": 1}, "seconds": 480,  "xp": 5,  "unlock_level": 14},
+  "cheese":         {"building": "dairy",        "inputs": {"milk": 3}, "outputs": {"cheese": 1}, "seconds": 1800, "xp": 10, "unlock_level": 15},
+  "goat_cheese":    {"building": "dairy",        "inputs": {"goat_milk": 3}, "outputs": {"goat_cheese": 1}, "seconds": 1800, "xp": 12, "unlock_level": 18},
+
+  "pillow":         {"building": "craft_table",  "inputs": {"feather": 4}, "outputs": {"pillow": 1}, "seconds": 900,  "xp": 6,  "unlock_level": 11},
+  "soap":           {"building": "soap_maker",   "inputs": {"goat_milk": 2, "herbs": 2}, "outputs": {"soap": 1}, "seconds": 1800, "xp": 12, "unlock_level": 19},
+  "yarn":           {"building": "loom",         "inputs": {"wool": 2}, "outputs": {"yarn": 1}, "seconds": 1200, "xp": 9,  "unlock_level": 22},
+  "blanket":        {"building": "loom",         "inputs": {"yarn": 3}, "outputs": {"blanket": 1}, "seconds": 3600, "xp": 25, "unlock_level": 23},
+  "sweater":        {"building": "loom",         "inputs": {"yarn": 2}, "outputs": {"sweater": 1}, "seconds": 2700, "xp": 20, "unlock_level": 24},
+
+  "carrot_stew":    {"building": "kitchen",      "inputs": {"carrot": 2, "wheat": 2}, "outputs": {"carrot_stew": 1}, "seconds": 30, "xp": 3, "unlock_level": 1},
+  "baked_potato":   {"building": "kitchen",      "inputs": {"potato": 2, "wheat": 1}, "outputs": {"baked_potato": 1}, "seconds": 60, "xp": 3, "unlock_level": 2},
+  "tomato_soup":    {"building": "kitchen",      "inputs": {"tomato": 2, "carrot": 1}, "outputs": {"tomato_soup": 1}, "seconds": 120, "xp": 5, "unlock_level": 3},
+  "corn_chowder":   {"building": "kitchen",      "inputs": {"corn": 2, "potato": 2}, "outputs": {"corn_chowder": 1}, "seconds": 180, "xp": 5, "unlock_level": 4},
+  "garden_salad":   {"building": "kitchen",      "inputs": {"lettuce": 2, "tomato": 1, "carrot": 1}, "outputs": {"garden_salad": 1}, "seconds": 120, "xp": 7, "unlock_level": 7},
+  "toast_and_jam":  {"building": "kitchen",      "inputs": {"bread": 1, "strawberry_jam": 1}, "outputs": {"toast_and_jam": 1}, "seconds": 120, "xp": 8, "unlock_level": 8},
+  "herb_roast":     {"building": "kitchen",      "inputs": {"potato": 2, "carrot": 2, "herbs": 1, "onion": 1}, "outputs": {"herb_roast": 1}, "seconds": 300, "xp": 9, "unlock_level": 9},
+  "veggie_omelette":{"building": "kitchen",      "inputs": {"egg": 2, "onion": 1, "tomato": 1}, "outputs": {"veggie_omelette": 1}, "seconds": 180, "xp": 8, "unlock_level": 10},
+  "pasta_pomodoro": {"building": "kitchen",      "inputs": {"flour": 2, "tomato_sauce": 1, "herbs": 1}, "outputs": {"pasta_pomodoro": 1}, "seconds": 300, "xp": 12, "unlock_level": 10},
+  "pancakes":       {"building": "kitchen",      "inputs": {"flour": 1, "egg": 2, "milk": 2}, "outputs": {"pancakes": 1}, "seconds": 240, "xp": 10, "unlock_level": 14},
+  "pumpkin_soup":   {"building": "kitchen",      "inputs": {"pumpkin": 1, "onion": 1, "cream": 1}, "outputs": {"pumpkin_soup": 1}, "seconds": 300, "xp": 11, "unlock_level": 14},
+  "cheese_toastie": {"building": "kitchen",      "inputs": {"bread": 1, "cheese": 1}, "outputs": {"cheese_toastie": 1}, "seconds": 240, "xp": 11, "unlock_level": 15},
+  "goat_cheese_salad":{"building": "kitchen",    "inputs": {"goat_cheese": 1, "lettuce": 2, "herbs": 1}, "outputs": {"goat_cheese_salad": 1}, "seconds": 300, "xp": 14, "unlock_level": 18},
+  "stuffed_peppers":{"building": "kitchen",      "inputs": {"pepper": 2, "cheese": 1, "herbs": 1}, "outputs": {"stuffed_peppers": 1}, "seconds": 420, "xp": 16, "unlock_level": 25},
+  "harvest_feast":  {"building": "kitchen",      "inputs": {"pumpkin_pie": 1, "herb_roast": 1, "bread": 1, "cheese": 1}, "outputs": {"harvest_feast": 1}, "seconds": 600, "xp": 35, "unlock_level": 28}
+}

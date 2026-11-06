@@ -1,0 +1,17 @@
+{
+  "_doc": "Crops grown on field plots. Times in seconds (real time). yield = units per harvest. Item price lives in items.json.",
+  "wheat":      {"seed_cost": 1,  "grow_seconds": 60,    "yield": 2, "xp": 1,  "unlock_level": 1,  "shape": "grain"},
+  "carrot":     {"seed_cost": 3,  "grow_seconds": 300,   "yield": 2, "xp": 2,  "unlock_level": 1,  "shape": "root"},
+  "potato":     {"seed_cost": 4,  "grow_seconds": 600,   "yield": 2, "xp": 3,  "unlock_level": 2,  "shape": "round"},
+  "tomato":     {"seed_cost": 6,  "grow_seconds": 1200,  "yield": 2, "xp": 4,  "unlock_level": 3,  "shape": "round"},
+  "corn":       {"seed_cost": 5,  "grow_seconds": 900,   "yield": 2, "xp": 3,  "unlock_level": 4,  "shape": "grain"},
+  "onion":      {"seed_cost": 7,  "grow_seconds": 1800,  "yield": 2, "xp": 5,  "unlock_level": 6,  "shape": "round"},
+  "lettuce":    {"seed_cost": 6,  "grow_seconds": 1500,  "yield": 2, "xp": 5,  "unlock_level": 7,  "shape": "leafy"},
+  "strawberry": {"seed_cost": 10, "grow_seconds": 3600,  "yield": 3, "xp": 8,  "unlock_level": 8,  "shape": "berry"},
+  "herbs":      {"seed_cost": 8,  "grow_seconds": 2400,  "yield": 2, "xp": 6,  "unlock_level": 9,  "shape": "leafy"},
+  "sunflower":  {"seed_cost": 12, "grow_seconds": 5400,  "yield": 2, "xp": 10, "unlock_level": 11, "shape": "flower"},
+  "pumpkin":    {"seed_cost": 18, "grow_seconds": 7200,  "yield": 2, "xp": 12, "unlock_level": 12, "shape": "round"},
+  "blueberry":  {"seed_cost": 20, "grow_seconds": 10800, "yield": 3, "xp": 14, "unlock_level": 16, "shape": "berry"},
+  "cabbage":    {"seed_cost": 24, "grow_seconds": 14400, "yield": 2, "xp": 16, "unlock_level": 20, "shape": "leafy"},
+  "pepper":     {"seed_cost": 28, "grow_seconds": 18000, "yield": 2, "xp": 18, "unlock_level": 25, "shape": "round"}
+}

@@ -1,0 +1,14 @@
+{
+  "_doc": "Livestock. Animals are cared for, never harmed. One feeding starts one production cycle. Happiness (0-100) rises when fed/petted and slowly decays; at >= bonus_happiness the cycle yields +1 of the main product.",
+  "happiness": {"start": 60, "per_feed": 8, "per_pet": 15, "pet_cooldown_seconds": 3600, "decay_per_hour": 3, "bonus_happiness": 75},
+  "animals": {
+    "chicken": {"name": "Hen",   "housing": "coop",       "cost": 60,  "unlock_level": 10, "feed": {"animal_feed": 1}, "cycle_seconds": 1200,
+                "products": [{"item": "egg", "qty": 1}, {"item": "feather", "qty": 1, "every": 2}], "xp": 3, "color": "#F6E7C8"},
+    "cow":     {"name": "Cow",   "housing": "barn_stall", "cost": 300, "unlock_level": 14, "feed": {"animal_feed": 2}, "cycle_seconds": 3600,
+                "products": [{"item": "milk", "qty": 2}], "xp": 8, "color": "#FFFFFF"},
+    "goat":    {"name": "Goat",  "housing": "goat_pen",   "cost": 420, "unlock_level": 18, "feed": {"animal_feed": 2}, "cycle_seconds": 5400,
+                "products": [{"item": "goat_milk", "qty": 2}], "xp": 10, "color": "#E4D3B8"},
+    "sheep":   {"name": "Sheep", "housing": "sheep_pen",  "cost": 600, "unlock_level": 22, "feed": {"animal_feed": 2}, "cycle_seconds": 7200,
+                "products": [{"item": "wool", "qty": 1}, {"item": "sheep_milk", "qty": 1}], "xp": 12, "color": "#F2EDE4"}
+  }
+}
