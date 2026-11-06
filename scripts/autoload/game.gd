@@ -28,6 +28,11 @@ func _ready() -> void:
 	t.autostart = true
 	t.timeout.connect(save)
 	add_child(t)
+	var tick := Timer.new()
+	tick.wait_time = 1.0
+	tick.autostart = true
+	tick.timeout.connect(func(): model.tick(now()))
+	add_child(tick)
 
 func set_model(m: GameModel) -> void:
 	model = m

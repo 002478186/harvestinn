@@ -77,8 +77,7 @@ func _pill(parent: Control, ic: Texture2D, target: String) -> Array:
 	p.add_child(h)
 	var r := UI.icon_rect(ic, 44)
 	h.add_child(r)
-	var l := UI.label("0", 28)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var l := UI.label("0", 28, UI.INK, 700, false)
 	h.add_child(l)
 	parent.add_child(p)
 	_targets[target] = r

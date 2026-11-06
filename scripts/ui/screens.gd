@@ -17,7 +17,7 @@ static func open(main, screen: String) -> void:
 		"barn": barn(main)
 		"settings": settings(main)
 		"shop": shop(main)
-		"inn": workshop(main, "kitchen")
+		"inn": main.show_farm() if main.inn.visible else main.show_inn()
 		_: main.hud.toast(tr_("Coming soon"))
 
 static func open_building(main, id: String) -> void:
@@ -306,13 +306,13 @@ static func _queue_rows(main, box: VBoxContainer, bid: String, redo: Callable) -
 					redo.call(), UI.MEADOW))
 		elif first_running:
 			first_running = false
-			h.add_child(UI.label(UI.fmt_time(float(j["end"]) - now), 24))
+			h.add_child(UI.label(UI.fmt_time(float(j["end"]) - now), 24, UI.INK, 700, false))
 			h.add_child(UI.button("%d" % GameModel.speedup_cost(float(j["end"]) - now), func():
 				var err := m.speed_up_job(bid, Game.now())
 				if err != "": main.say_error(err)
 				else: redo.call(), UI.SKY, UI.icon("gem")))
 		else:
-			h.add_child(UI.label(tr_("Waiting"), 24, UI.WOOD_DARK))
+			h.add_child(UI.label(tr_("Waiting"), 24, UI.WOOD_DARK, 700, false))
 		box.add_child(h)
 
 # ------------------------------------------------------------------ shop

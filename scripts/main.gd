@@ -3,12 +3,21 @@ extends Node
 
 var farm: Node2D
 var hud: CanvasLayer
+var inn: Control
 var planting := ""            # crop id while in planting mode
 
 func _ready() -> void:
 	farm = preload("res://scripts/farm/farm_view.gd").new()
 	add_child(farm)
+	var inn_layer := CanvasLayer.new()
+	inn_layer.layer = 1
+	add_child(inn_layer)
+	inn = preload("res://scripts/inn/inn_view.gd").new()
+	inn.main = self
+	inn.visible = false
+	inn_layer.add_child(inn)
 	hud = preload("res://scripts/ui/hud.gd").new()
+	hud.layer = 2
 	add_child(hud)
 	var tut := preload("res://scripts/ui/tutorial_card.gd").new()
 	tut.hud = hud
@@ -65,3 +74,16 @@ func _on_building(id: String) -> void:
 
 func _on_nav(screen: String) -> void:
 	Screens.open(self, screen)
+
+func show_inn() -> void:
+	hud.close_sheet()
+	hud.clear_banner()
+	planting = ""
+	inn.visible = true
+	farm.set_process_unhandled_input(false)
+	Sfx.play("door")
+
+func show_farm() -> void:
+	inn.visible = false
+	farm.set_process_unhandled_input(true)
+	Sfx.play("door")

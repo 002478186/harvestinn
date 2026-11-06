@@ -216,7 +216,16 @@ func offline_summary(since: float, now: float) -> Dictionary:
 		for j in s["buildings"][b]["queue"]:
 			if float(j["end"]) > since and float(j["end"]) <= now:
 				out["jobs"] += 1
+	tick(now)
+	out["guests"] = inn()["guests"].filter(func(g): return float(g["arrived"]) > since and float(g["arrived"]) < now).size()
+	out["room_coins"] = 0
+	for i in inn()["rooms"].size():
+		out["room_coins"] += room_income(i, now)
 	return out
+
+## Periodic world update (called every second by the Game autoload and on load).
+func tick(now: float) -> void:
+	tick_inn(now)
 
 # ------------------------------------------------------------ tutorial
 
@@ -362,3 +371,152 @@ func speed_up_job(bid: String, now: float) -> String:
 ## Placeholder until livestock (milestone 11).
 func animals_ready(_housing: String, _now: float) -> int:
 	return 0
+
+# ------------------------------------------------------------ the inn
+
+func inn() -> Dictionary:
+	var d: Dictionary = s["inn"]
+	if not d.has("guests"):
+		d.merge({"guests": [], "next_guest": 0.0, "rooms": []})
+	return d
+
+func _rng() -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.state = int(s["rng"])
+	return r
+
+func _save_rng(r: RandomNumberGenerator) -> void:
+	s["rng"] = r.state
+
+func rep_tier() -> Dictionary:
+	var tiers: Array = GameData.economy()["inn"]["reputation_tiers"]
+	var best: Dictionary = tiers[0]
+	for t in tiers:
+		if int(s["reputation"]) >= int(t["reputation"]): best = t
+	var out := best.duplicate()
+	out["index"] = tiers.find(best)
+	return out
+
+func add_reputation(n: int) -> void:
+	var before := int(rep_tier()["index"])
+	s["reputation"] = int(s["reputation"]) + n
+	event.emit("reputation", {"value": s["reputation"]})
+	if int(rep_tier()["index"]) > before:
+		event.emit("rep_tier", rep_tier())
+
+## Kitchen meals the player can cook at their level.
+func meals_available() -> Array[String]:
+	return GameData.recipes_for("kitchen").filter(func(r): return is_unlocked(GameData.recipes()[r]["unlock_level"]))
+
+func tick_inn(now: float) -> void:
+	var d := inn()
+	var interval := float(GameData.economy()["inn"]["guest_interval_seconds"])
+	if float(d["next_guest"]) == 0.0:
+		d["next_guest"] = now
+	while float(d["next_guest"]) <= now:
+		if d["guests"].size() >= int(rep_tier()["tables"]):
+			d["next_guest"] = now + interval
+			break
+		_spawn_guest(float(d["next_guest"]))
+		d["next_guest"] = float(d["next_guest"]) + interval
+
+func _spawn_guest(at: float) -> void:
+	var d := inn()
+	var r := _rng()
+	var present: Array = d["guests"].map(func(g): return g["char"])
+	var pool: Array = []
+	for cid in GameData.characters():
+		var c: Dictionary = GameData.characters()[cid]
+		if c.get("guest", false) and int(c["min_reputation"]) <= int(s["reputation"]) and not cid in present:
+			pool.append(cid)
+	if pool.is_empty(): return
+	var who: String = pool[r.randi_range(0, pool.size() - 1)]
+	var order := {}
+	if int(s["stats"].get("served", 0)) == 0 and d["guests"].is_empty():
+		order = {"carrot_stew": 1}      # tutorial guest: the meal the player can already cook
+	else:
+		var meals := meals_available()
+		var favs: Array = GameData.characters()[who].get("favourites", [])
+		var weighted: Array = []
+		for meal in meals:
+			for k in (3 if meal in favs else 1): weighted.append(meal)
+		var kinds := r.randi_range(1, int(rep_tier()["max_order_items"]))
+		for k in kinds:
+			var meal: String = weighted[r.randi_range(0, weighted.size() - 1)]
+			order[meal] = int(order.get(meal, 0)) + (r.randi_range(1, 2) if int(rep_tier()["index"]) >= 2 else 1)
+	_save_rng(r)
+	d["guests"].append({"char": who, "order": order, "arrived": at})
+	event.emit("guest", {"char": who})
+
+## Coins a guest pays for their order: meal value × markup × (1 + tip from reputation tier).
+func order_value(order: Dictionary) -> int:
+	var inn_cfg: Dictionary = GameData.economy()["inn"]
+	var base := 0
+	for meal in order: base += GameData.item_price(meal) * int(order[meal])
+	var tip := float(inn_cfg["tip_per_reputation_tier"]) * int(rep_tier()["index"])
+	return int(round(base * float(inn_cfg["meal_markup"]) * (1.0 + tip)))
+
+func serve_guest(i: int) -> String:
+	var d := inn()
+	if i < 0 or i >= d["guests"].size(): return "unknown"
+	var g: Dictionary = d["guests"][i]
+	if not remove_items(g["order"]): return "missing_items"
+	var coins := order_value(g["order"])
+	var qty := 0
+	var xp := 0
+	for meal in g["order"]:
+		qty += int(g["order"][meal])
+		xp += int(GameData.recipes()[meal]["xp"]) * int(g["order"][meal])
+	d["guests"].remove_at(i)
+	add_coins(coins)
+	add_xp(xp)
+	add_reputation(int(GameData.economy()["inn"]["reputation_per_meal"]) * qty)
+	stat("served")
+	event.emit("served", {"char": g["char"], "coins": coins, "xp": xp})
+	return ""
+
+## A guest leaves without eating (no penalty — it's a cozy inn).
+func dismiss_guest(i: int, now: float) -> void:
+	inn()["guests"].remove_at(i)
+	inn()["next_guest"] = minf(float(inn()["next_guest"]), now + 10.0)
+	event.emit("guest", {})
+
+# guest rooms ------------------------------------------------
+
+func room_config(i: int) -> Dictionary:
+	return GameData.economy()["inn"]["guest_rooms"][i]
+
+func build_room(now: float) -> String:
+	var rooms: Array = inn()["rooms"]
+	var cfgs: Array = GameData.economy()["inn"]["guest_rooms"]
+	if rooms.size() >= cfgs.size(): return "max_level"
+	var c: Dictionary = cfgs[rooms.size()]
+	if not is_unlocked(c["unlock_level"]): return "locked"
+	if not spend(int(c["cost"])): return "no_coins"
+	rooms.append({"furnished": false, "collected": now})
+	event.emit("room", {})
+	return ""
+
+func furnish_room(i: int, now: float) -> String:
+	var room: Dictionary = inn()["rooms"][i]
+	if room["furnished"]: return "owned"
+	if not remove_items(room_config(i)["requires"]): return "missing_items"
+	room["furnished"] = true
+	room["collected"] = now
+	event.emit("room", {})
+	return ""
+
+func room_income(i: int, now: float) -> int:
+	var room: Dictionary = inn()["rooms"][i]
+	if not room["furnished"]: return 0
+	var cap := float(GameData.economy()["inn"]["room_storage_hours"])
+	var hours := minf((now - float(room["collected"])) / 3600.0, cap)
+	return int(floor(float(room_config(i)["coins_per_hour"]) * maxf(hours, 0.0)))
+
+func collect_room(i: int, now: float) -> String:
+	var n := room_income(i, now)
+	if n <= 0: return "not_ready"
+	inn()["rooms"][i]["collected"] = now
+	add_coins(n)
+	event.emit("collect", {"room": i, "coins": n})
+	return ""

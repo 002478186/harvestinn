@@ -70,14 +70,15 @@ static func tex(path: String) -> Texture2D:
 static func item_tex(id: String) -> Texture2D: return tex("res://assets/art/items/%s.svg" % id)
 static func icon(name: String) -> Texture2D: return tex("res://assets/art/ui/%s.svg" % name)
 
-static func label(text: String, size := 30, color := INK, weight := 700) -> Label:
+## wrap=false for short counters inside HBoxes (wrapping labels without width collapse).
+static func label(text: String, size := 30, color := INK, weight := 700, wrap := true) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	if weight != 700:
 		l.add_theme_font_override("font", font(weight))
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
 	return l
 
 static func button(text: String, on_press: Callable, color := RED, ic: Texture2D = null) -> Button:

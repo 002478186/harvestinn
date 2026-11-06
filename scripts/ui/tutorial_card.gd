@@ -4,11 +4,13 @@ extends PanelContainer
 var hud: CanvasLayer
 var _pulse: Tween
 
-func _ready() -> void:
+func _init() -> void:
 	set_anchors_preset(Control.PRESET_TOP_WIDE)
 	offset_top = 130
 	offset_left = 16
 	offset_right = -16
+
+func _ready() -> void:
 	add_theme_stylebox_override("panel", UI.box(Color(1, 1, 1, 0.95), 28, 5, UI.WHEAT))
 	Game.event.connect(func(n, _d): if n in ["tutorial", "reset", "name"]: _show())
 	_show()
