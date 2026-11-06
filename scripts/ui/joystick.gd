@@ -8,9 +8,11 @@ var _finger := -1
 var _origin := Vector2.ZERO
 var _knob := Vector2.ZERO
 
-func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+func _init() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)   # before entering the tree, or size stays 0
 	anchor_right = 0.45
+
+func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _gui_input(e: InputEvent) -> void:

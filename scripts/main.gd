@@ -52,6 +52,10 @@ func _ready() -> void:
 			var v := a.substr(9)
 			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
 			else: Screens.open(self, v)
+	if "--fresh" in OS.get_cmdline_user_args():   # dev: a brand-new player who already made a farmer
+		Game.set_model(GameModel.new_game(Game.now()))
+		Game.model.s["avatar"]["model"] = "Rogue_Hooded"
+		Game.welcome = {}
 	var clean := "--clean" in OS.get_cmdline_user_args()   # dev: screenshots without popups
 	if clean:
 		Game.model.s["daily"] = {"last": GameModel.local_day(Game.now()), "streak": 1}

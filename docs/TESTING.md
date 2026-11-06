@@ -13,12 +13,14 @@ python3 tools/dev_backend.py --e2e                               # real client �
 combines them into one image. `-- --perf` prints FPS, draw calls and triangles every 2 s.
 
 ## On your phone: a 15-minute play-test
-1. **First launch:** the Innkeeper card appears. Follow it: plant wheat → open the Inn → kitchen → cook
-   Carrot Stew → harvest wheat → serve the guest (coins and hearts fly to the top bar) → Market → sell.
-   The tutorial ends with a gift and then the daily reward.
-2. **Touch:** drag to pan, pinch to zoom, tap plots. Long-press the Inn for half a second, drag it, and release:
-   it moves (and won't drop onto the fields).
-3. **Planting mode:** pick a seed, then keep tapping empty plots; tap *Done* to stop.
+1. **First launch:** create your farmer (5 looks, 8 outfit colours, a name). Marigold's card then
+   guides you: walk (left thumb) to the FOR SALE field and buy it → stand on soil, Plant wheat →
+   talk to Basil and cook a Carrot Stew → harvest the glowing wheat → serve the guest at the inn's
+   terrace table → sell at Wren's market stall. The tutorial ends with a gift.
+2. **Feel:** walk vs run (push the stick further), drag on the right to orbit, pinch to zoom.
+   Walking into trees or buildings: the camera slides in instead of clipping.
+3. **Sweep:** hold the green button and walk across a field: every plot you cross gets planted
+   (or harvested when ripe). Watch the produce pop out and fly to you.
 4. **Timers and offline:** plant carrots (5 min), close the app completely, wait 6 minutes, reopen:
    "Welcome back" lists what finished, and the carrots are ready.
 5. **Level-ups:** at level 2 a popup lists the new unlocks and Marigold says something new.
