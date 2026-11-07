@@ -52,6 +52,15 @@ func build() -> void:
 		"inn": _inn()
 		"storehouse": _storehouse()
 		_: _workshop(kind)
+	if kind == "inn" and life:   # the dining room hums with chatter (rebuilt rooms keep one player)
+		if life.get_node_or_null("Chatter") == null:
+			var ch := AudioStreamPlayer.new()
+			ch.name = "Chatter"
+			ch.stream = Sfx.loop_stream("chatter")
+			ch.bus = "Ambience"
+			ch.volume_db = -8.0
+			life.add_child(ch)
+			ch.play()
 	_add("Go outside", ORIGIN + Vector3(0, 0, _size().y / 2.0 - 0.3), 1.8, func(): w.main.leave_interior(), "farm")
 
 # ------------------------------------------------------------------ shell

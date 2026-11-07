@@ -88,6 +88,8 @@ func _process(_dt: float) -> void:
 	player.stick = hud.joystick.value
 	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
+	Sfx.set_night(world.day.is_night())
+	Sfx.duck(player.frozen)
 	hud.action_btn.visible = hud.action_btn.visible and not player.frozen and hud.action_btn.text != ""
 	hud.set_seed(seed if hud.action_btn.visible and world._current.has("plot") and Game.model.s["plots"][world._current["plot"]]["crop"] == "" else "")
 
@@ -113,7 +115,7 @@ func _on_event(name: String, d: Dictionary) -> void:
 			Sfx.buzz("heavy")
 		"avatar", "reset": _dress_player()
 		"achievement":
-			Sfx.play("level_up")
+			Sfx.play("achieve")
 			hud.toast(tr("Achievement: %s!") % tr(GameData.achievements()[d["id"]]["name"]))
 		"tutorial":
 			if Game.model.tutorial_step().is_empty(): Screens.daily(self)
@@ -201,13 +203,14 @@ func tend_animal(h: String, i: int, node: Node3D) -> void:
 			if err != "":
 				say_error(err)
 				return
-			Sfx.play("plant")
+			Sfx.play("feed")
 			player.do_action("Interact", at)
 			world.hop(node)
 		_:
 			if m.pet_animal(h, i, now) != "":
 				hud.toast(tr("The %s is already happy!") % tr(kind["name"]))
 				return
+			Sfx.play(world.VOICES.get(m.s["animals"][h][i]["type"], "pet"))
 			Sfx.play("pet")
 			player.do_action("Interact", at)
 			world.hop(node)
@@ -222,7 +225,7 @@ func sell_crate(id: String, at: Vector3) -> void:
 	if err != "":
 		say_error(err)
 		return
-	Sfx.play("coins")
+	Sfx.play("sell")
 	player.do_action("Interact", at)
 	world.npc("merchant").play("Cheer")
 	world.pop_text("+%d" % coins, at + Vector3(0, 1.4, 0))
@@ -306,7 +309,7 @@ func serve_at_table(t: int) -> void:
 		return
 	world.interiors.serve_guest(g["char"], coins)   # eats, then pays with a coin pop and leaves
 	player.do_action("Interact", at)
-	Sfx.play("collect")
+	Sfx.play("serve")
 	var lines: Array = GameData.characters()[g["char"]]["lines"].get("served", [])
 	if not lines.is_empty(): hud.toast("“%s”" % Dialogue.text(lines[0]))
 

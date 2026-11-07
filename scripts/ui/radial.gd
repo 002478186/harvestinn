@@ -19,6 +19,7 @@ static func open(hud, world_pos: Vector3, items: Array, more: Callable, more_lab
 	r.add_child(dim)
 	hud.root.add_child(r)
 	hud._sheet = r
+	Sfx.play("pop")
 	var view: Vector2 = hud.root.get_viewport_rect().size
 	var radius := clampf(70.0 + items.size() * 17.0, 150.0, 290.0)
 	var cam: Camera3D = hud.get_viewport().get_camera_3d()

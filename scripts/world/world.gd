@@ -73,6 +73,7 @@ func _ready() -> void:
 		_npcs[id] = c
 	Game.event.connect(_on_event)
 	rebuild()
+	_soundscape()
 	var life := preload("res://scripts/world/villagers.gd").new()
 	life.w = self
 	add_child(life)
@@ -174,6 +175,32 @@ func _night_sky() -> void:
 	flies.material_override = fmat
 	add_child(flies)
 	day.night_fx.append(flies)
+
+## Positional ambience: birds in the trees by day, crickets in the fields at night,
+## water at the pond and fountain, chatter spilling out of the inn door.
+var _day_sounds: Array[AudioStreamPlayer3D] = []
+var _night_sounds: Array[AudioStreamPlayer3D] = []
+
+func _soundscape() -> void:
+	for e in [["birds", Vector3(-20, 5, -20), -6.0, 0], ["birds", Vector3(24, 5, -18), -6.0, 0], ["birds", Vector3(-26, 5, 24), -6.0, 0], ["birds", Vector3(30, 5, 6), -6.0, 0],
+			["crickets", Vector3(-4, 0.5, 14), -4.0, 1], ["crickets", Vector3(12, 0.5, 26), -4.0, 1], ["crickets", Vector3(-16, 0.5, -20), -4.0, 1],
+			["water", Vector3(-24, 0.5, 3), -2.0, 2], ["water", Vector3(0, 1, -5.5), -10.0, 2], ["chatter", Vector3(0, 1.5, -11), -2.0, 2]]:
+		var p := AudioStreamPlayer3D.new()
+		p.stream = Sfx.loop_stream(e[0])
+		p.bus = "Ambience"
+		p.volume_db = e[2]
+		p.unit_size = 7.0
+		p.max_distance = 45.0
+		p.position = e[1]
+		add_child(p)
+		p.play(randf() * 5.0)
+		if e[3] == 0: _day_sounds.append(p)
+		elif e[3] == 1: _night_sounds.append(p)
+
+func _soundscape_tick() -> void:
+	var night := day.is_night()
+	for p in _day_sounds: p.stream_paused = night or interiors.kind != ""
+	for p in _night_sounds: p.stream_paused = not night or interiors.kind != ""
 
 func _mat(color: Color, rough := 0.9) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -592,6 +619,7 @@ func _animals(m: GameModel) -> void:
 			var start := home + Vector3(-2.0 + (i % 3) * 2.0, 0, (i / 3) * 1.8)
 			a.position = start
 			_wander(a, start)
+			_voice(a, kind)
 			var st := m.animal_state(h, i, now)
 			if st != "producing":   # what it wants floats above it: its goods, or a feed bag
 				var want := Sprite3D.new()
@@ -610,6 +638,27 @@ func _animals(m: GameModel) -> void:
 			_add(func(): return _animal_label(hh, ii), start, 1.9, func(): main.tend_animal(hh, ii, an), "heart_hand")
 			_interact[-1]["node"] = a
 		_pen_fence(home)
+
+const VOICES := {"chicken": "cluck", "cow": "moo", "sheep": "baa", "goat": "bleat"}
+
+## Every so often an animal speaks up (positional, so the paddock sounds alive as you pass).
+func _voice(a: Node3D, kind: String) -> void:
+	var p := AudioStreamPlayer3D.new()
+	p.stream = Sfx._stream(VOICES.get(kind, "pet"))
+	p.bus = "SFX"
+	p.volume_db = -6.0
+	p.unit_size = 5.0
+	p.max_distance = 30.0
+	a.add_child(p)
+	var t := Timer.new()
+	t.wait_time = randf_range(7.0, 18.0)
+	t.autostart = true
+	t.timeout.connect(func():
+		t.wait_time = randf_range(9.0, 22.0)
+		if Sfx.sfx_on:
+			p.pitch_scale = randf_range(0.9, 1.1)
+			p.play())
+	a.add_child(t)
 
 ## Walk-up care: collect when ready, feed when hungry, otherwise a pat on the head.
 func _animal_label(h: String, i: int) -> String:
@@ -1004,6 +1053,7 @@ func _process(dt: float) -> void:
 		for i in _plots.size(): _refresh_plot(i)
 		_timers()
 		_ready_markers()
+		_soundscape_tick()
 	var t := Time.get_ticks_msec() / 1000.0   # wind through the crops
 	for i in _plots.size():
 		var crop := _plots[i].get_node_or_null("Crop")
