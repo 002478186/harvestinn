@@ -23,3 +23,10 @@ func test_styling_is_in_place_and_once() -> bool:
 	truthy(m.rim_enabled, "rim light")
 	mi.free()
 	return true
+
+func test_looks_vary_and_are_stable_per_seed() -> bool:
+	var seen := {}
+	for i in 30: seen[str(Character3D.random_look(i))] = true
+	truthy(seen.size() >= 25, "30 guests, at least 25 different looks (got %d)" % seen.size())
+	eq(Character3D.random_look(42), Character3D.random_look(42), "same seed, same look")
+	return true

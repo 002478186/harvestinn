@@ -293,7 +293,7 @@ func _sync_guests(guests: Array) -> void:
 			_guests.erase(gid)
 	for gid in want:
 		if _guests.has(gid): continue
-		var who := Character3D.make(Character3D.MODELS[abs(gid.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(gid.hash()) % 360) / 360.0, 0.35, 1.0))
+		var who := Character3D.make_look(Character3D.random_look(gid.hash()))
 		who.scale = Vector3.ONE * 0.72
 		life.add_child(who)
 		_guests[gid] = who
@@ -374,8 +374,8 @@ func _workshop(id: String) -> void:
 	_put(props[1][0], props[1][1], Vector3(1.4, 0, -4.6), 0, true)
 	_dress_workshop(id)
 	var signature: String = GameData.recipes()[GameData.recipes_for(id)[0]]["outputs"].keys()[0]
-	_icon(signature, Vector3(0, 2.6, -5.3), 0.012)
-	_sign("%s · %s %d" % [b["name"], tr("Lv"), m.building_level(id) + 1], Vector3(0, 3.35, -5.3), 40, UI.WHEAT)
+	_icon(signature, Vector3(0, 2.05, -5.2), 0.010)
+	_sign("%s · %s %d" % [b["name"], tr("Lv"), m.building_level(id) + 1], Vector3(0, 2.95, -5.0), 40, UI.WHEAT)
 	var q: Array = m.s["buildings"][id]["queue"]
 	var ready := q.filter(func(j): return float(j["end"]) <= now)
 	if q.size() > ready.size():
@@ -407,10 +407,9 @@ func _dress_workshop(id: String) -> void:
 	_put("village/sack.gltf", 4.0, Vector3(-3.8, 0, -1.4), 30)
 	_put("village/crate_A_big.gltf", 3.5, Vector3(3.6, 0, -4.8), 10, true)
 	_put("furniture/lamp_standing.gltf", 1.0, Vector3(-3.9, 0, 2.5))
-	_put("furniture/pictureframe_medium.gltf", 1.0, Vector3(0, 2.3, -5.3))
-	var worker := Character3D.make(Character3D.MODELS[abs(id.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(id.hash()) % 360) / 360.0, 0.3, 1.0))
+	var worker := Character3D.make_look(Character3D.random_look(id.hash()))
 	worker.scale = Vector3.ONE * 0.75
-	worker.position = ORIGIN + Vector3(-1.2, 0, -3.6)
+	worker.position = ORIGIN + Vector3(-1.2, 0, -3.1)
 	add_child(worker)
 	var tw := worker.create_tween().set_loops()   # works the station: interact, pause, repeat
 	tw.tween_callback(func(): worker.current = ""; worker.play("Interact"))

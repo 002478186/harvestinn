@@ -13,9 +13,9 @@ var frozen := false                # true while a menu is open
 var _step := 0.0
 var _foot: AudioStreamPlayer3D
 
-func setup(model: String, tint: Color) -> void:
+func setup(look: Dictionary) -> void:
 	if body: body.queue_free()
-	body = Character3D.make(model, tint)
+	body = Character3D.make_look(look)
 	body.scale = Vector3.ONE * 0.8
 	add_child(body)
 

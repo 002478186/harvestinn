@@ -181,6 +181,18 @@ static func settings(main) -> void:
 		body.add_child(UI.button(tr_("Skip tutorial"), func(): m.skip_tutorial(); main.hud.close_sheet(), UI.WOOD_DARK))
 	body.add_child(UI.label(tr_("HarvestInn v%s · Credits in CREDITS.md") % ProjectSettings.get_setting("application/config/version"), 20, UI.WOOD_DARK))
 
+## "< Face 2 of 5 >": steps through `values`, calling `pick` with the new one.
+static func _cycle(title: String, values: Array, current: String, pick: Callable) -> HBoxContainer:
+	var i := maxi(values.find(current), 0)
+	var row := HBoxContainer.new()
+	row.add_child(UI.button("<", func(): pick.call(values[(i - 1 + values.size()) % values.size()]), UI.WOOD_DARK))
+	var l := UI.label("%s %d / %d" % [title, i + 1, values.size()], 28, UI.WOOD_DARK, 600, false)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(l)
+	row.add_child(UI.button(">", func(): pick.call(values[(i + 1) % values.size()]), UI.WOOD_DARK))
+	return row
+
 const OUTFIT_TINTS := ["#FFFFFF", "#F2B84B", "#7CC35A", "#8FD3F4", "#E07A5F", "#C97BB5", "#D8B67E", "#9AA0A6"]
 
 ## Choose your farmer: body model, outfit colour and name, previewed live on the 3D character.
@@ -189,11 +201,11 @@ static func character_creator(main) -> void:
 	var a: Dictionary = m.s["avatar"]
 	if str(a.get("model", "")) == "":
 		m.set_avatar("model", Character3D.MODELS[0])
-	main.rig.dist = 6.0
+	main.rig.dist = 6.5
 	main.rig.yaw = PI                        # camera in front: see your farmer's face
-	main.rig.look_offset = Vector3(0, -1.6, 0)
+	main.rig.look_offset = Vector3(0, -2.3, 0)   # farmer framed above the sheet
 	main.player.body.rotation.y = 0.0
-	var body: VBoxContainer = main.hud.sheet(tr_("Your farmer"), 0.48)
+	var body: VBoxContainer = main.hud.sheet(tr_("Your farmer"), 0.6)
 	var redo := func(): character_creator(main)
 	var models := Character3D.MODELS
 	var i := models.find(str(a["model"]))
@@ -205,11 +217,15 @@ static func character_creator(main) -> void:
 	row1.add_child(name_l)
 	row1.add_child(UI.button(">", func(): m.set_avatar("model", models[(i + 1) % models.size()]); main.player.do_action("Cheer", main.rig.cam.global_position); redo.call(), UI.WOOD_DARK))
 	body.add_child(row1)
+	var faces: Array = [""] + Character3D.HEADS
+	var wears: Array = ["default"] + Character3D.HEADWEAR
+	body.add_child(_cycle(tr_("Face"), faces, str(a.get("head", "")), func(v): m.set_avatar("head", v); redo.call()))
+	body.add_child(_cycle(tr_("Hat"), wears, str(a.get("headwear", "default")), func(v): m.set_avatar("headwear", v); redo.call()))
 	body.add_child(UI.label(tr_("Outfit colour"), 26, UI.WOOD_DARK, 600))
 	var sw := HFlowContainer.new()
 	for c in OUTFIT_TINTS:
 		var b := UI.button("", func(): m.set_avatar("tint", c); redo.call(), Color(c))
-		b.custom_minimum_size = Vector2(84, 84)
+		b.custom_minimum_size = Vector2(66, 66)
 		if str(a.get("tint", "#ffffff")).to_lower() == c.to_lower():
 			b.add_theme_stylebox_override("normal", UI.box(Color(c), 22, 8, UI.RED))
 		sw.add_child(b)

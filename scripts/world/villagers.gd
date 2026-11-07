@@ -56,7 +56,7 @@ func _process(dt: float) -> void:
 		else: depart()
 
 func _villager(at: Vector3) -> Character3D:
-	var c := Character3D.make(Character3D.MODELS[_rng.randi() % Character3D.MODELS.size()], Color.from_hsv(_rng.randf(), 0.4, 1.0))
+	var c := Character3D.make_look(Character3D.random_look(_rng.randi(), true))
 	c.scale = Vector3.ONE * 0.72
 	add_child(c)
 	c.global_position = at

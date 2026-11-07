@@ -86,7 +86,8 @@ func _process(_dt: float) -> void:
 func _dress_player() -> void:
 	var a: Dictionary = Game.model.s["avatar"]
 	var model := str(a.get("model", ""))
-	player.setup(model if model != "" else "Rogue_Hooded", Color(str(a.get("tint", "#ffffff"))))
+	player.setup({"body": model if model != "" else "Rogue_Hooded", "head": str(a.get("head", "")),
+		"headwear": str(a.get("headwear", "default")), "tint": Color(str(a.get("tint", "#ffffff")))})
 
 func _on_event(name: String, d: Dictionary) -> void:
 	match name:
