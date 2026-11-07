@@ -10,8 +10,9 @@ func setup() -> void:
 func test_kitchen_exists_and_cooks() -> bool:
 	eq(m.queue_recipe("kitchen", "carrot_stew", 0.0), "", "queue stew")
 	eq(m.count("carrot"), 0, "carrots used")
-	eq(m.collect_building("kitchen", 29.0), "not_ready", "29s")
-	eq(m.collect_building("kitchen", 30.0), "", "30s")
+	var cook := float(GameData.recipes()["carrot_stew"]["seconds"])
+	eq(m.collect_building("kitchen", cook - 1.0), "not_ready", "a second early")
+	eq(m.collect_building("kitchen", cook), "", "on time")
 	eq(m.count("carrot_stew"), 1, "stew")
 	eq(m.s["stats"]["cooked"], 1, "stat")
 	return true

@@ -15,9 +15,10 @@ func test_plant_costs_seed_and_harvest_after_timer() -> bool:
 	eq(m.plant(0, "wheat", 1000.0), "", "plant ok")
 	eq(m.s["coins"], 49, "seed cost")
 	eq(m.plant(0, "wheat", 1000.0), "plot_busy", "busy")
-	eq(m.harvest(0, 1059.0), "not_ready", "not ready at 59s")
-	eq(m.plot_progress(0, 1030.0), 0.5, "half grown")
-	eq(m.harvest(0, 1060.0), "", "ready at 60s")
+	var grow := float(GameData.crops()["wheat"]["grow_seconds"])
+	eq(m.harvest(0, 1000.0 + grow - 1.0), "not_ready", "not ready a second early")
+	eq(m.plot_progress(0, 1000.0 + grow / 2.0), 0.5, "half grown")
+	eq(m.harvest(0, 1000.0 + grow), "", "ready on time")
 	eq(m.count("wheat"), 6, "yield 2")
 	eq(m.s["xp"], 1, "xp")
 	return true

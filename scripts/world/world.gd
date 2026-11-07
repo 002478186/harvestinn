@@ -47,6 +47,7 @@ var _current: Dictionary = {}
 var _npcs := {}
 var _clock := 0.0
 var _inside_clock := 0.0
+var _beacon_clock := 0.0
 
 func _ready() -> void:
 	_environment()
@@ -540,6 +541,7 @@ func rebuild() -> void:
 	day.lamps = day.lamps.filter(func(l): return l.has("mat"))   # building lights are rebuilt below
 	_plots.clear()
 	_interact.clear()
+	_parcel_sign = Vector3.INF
 	var m: GameModel = Game.model
 	# the inn + market are always there
 	_building("inn", true)
@@ -595,6 +597,7 @@ func rebuild() -> void:
 	if not next.is_empty():
 		_parcel(int(m.s["parcels"]), false)
 		var sign_pos := parcel_origin(int(m.s["parcels"])) + Vector3(PLOT * 1.5, 0, -0.8)
+		_parcel_sign = sign_pos
 		_add(func(): return ("Buy this field · %d" % int(next["cost"])) if m.is_unlocked(next["unlock_level"]) else "Field unlocks at level %d" % int(next["unlock_level"]),
 			sign_pos, 3.5, func(): main.buy_field(), "coin")
 	# NPC chats
@@ -637,6 +640,7 @@ func _animals(m: GameModel) -> void:
 			var an: Node3D = a
 			_add(func(): return _animal_label(hh, ii), start, 1.9, func(): main.tend_animal(hh, ii, an), "heart_hand")
 			_interact[-1]["node"] = a
+			_interact[-1]["animal"] = [h, i]
 		_pen_fence(home)
 
 const VOICES := {"chicken": "cluck", "cow": "moo", "sheep": "baa", "goat": "bleat"}
@@ -796,6 +800,111 @@ func plot_pos(i: int) -> Vector3:
 	var per := GameModel.plots_per_parcel()
 	var k := i % per
 	return parcel_origin(i / per) + Vector3(PLOT * (0.5 + k % 3), 0, PLOT * (0.5 + k / 3))
+
+# ------------------------------------------------------------------ next-thing beacon
+
+var _parcel_sign := Vector3.INF
+var _beacon: Node3D
+var beacon_at := Vector3.INF          # where the beacon points (INF = nothing to do right now)
+
+## What the player should do next, as a kind: the tutorial step decides, then a priority list.
+static func next_kind(m: GameModel, now: float) -> String:
+	var st := m.tutorial_step()
+	if not st.is_empty():
+		if st["goal"] is String: return ""
+		return {"parcels": "parcel", "planted": "plot_empty", "cooked": "kitchen", "harvests": "plot_ready", "served": "guest", "sold": "stall"}.get(st["goal"]["stat"], "")
+	for i in m.s["plots"].size():
+		if m.s["plots"][i]["crop"] != "" and m.plot_remaining(i, now) <= 0.0: return "plot_ready"
+	for h in m.s["animals"]:
+		if m.animals_ready(h, now) > 0: return "animal_ready"
+	for g in m.inn()["guests"]:
+		if m.has_items(g["order"]): return "guest"
+	for b in m.s["buildings"]:
+		if m.building_has_ready(b, now) and b != "kitchen": return "building_ready"
+	for i in m.s["plots"].size():
+		if m.s["plots"][i]["crop"] == "": return "plot_empty"
+	return ""
+
+func _beacon_target() -> Vector3:
+	var m: GameModel = Game.model
+	var now := Game.now()
+	var kind := next_kind(m, now)
+	if kind == "": return Vector3.INF
+	var inn_door: Vector3 = BUILDINGS["inn"][2] + Vector3(0, 0, 5)
+	if kind in ["kitchen", "guest"]:
+		if interiors.kind == "inn":
+			if kind == "kitchen": return interiors.ORIGIN + Vector3(-3.1, 0, -5.2)
+			for g in m.inn()["guests"]:
+				if kind == "guest" and (m.has_items(g["order"]) or not m.tutorial_step().is_empty()): return interiors.table_pos(g["char"]) + Vector3(0, 0, 1.9)
+			return Vector3.INF
+		if interiors.kind != "": return interiors.exit_spot()
+		return inn_door
+	if interiors.kind != "": return interiors.exit_spot()
+	var pp := player.global_position
+	match kind:
+		"parcel": return _parcel_sign
+		"stall":
+			for it in _interact:
+				if it.has("stall"): return it["pos"]
+			return MARKET[2] + Vector3(2, 0, 4)
+		"plot_ready", "plot_empty":
+			var best := Vector3.INF
+			for i in _plots.size():
+				var p: Dictionary = m.s["plots"][i]
+				var ok: bool = p["crop"] == "" if kind == "plot_empty" else p["crop"] != "" and (m.plot_remaining(i, now) <= 0.0 or not m.tutorial_step().is_empty())
+				if ok and pp.distance_to(_plots[i].position) < pp.distance_to(best): best = _plots[i].position
+			return best
+		"animal_ready":
+			for it in _interact:
+				if it.has("animal") and is_instance_valid(it["node"]) and m.animal_state(it["animal"][0], it["animal"][1], now) == "ready": return it["node"].global_position
+		"building_ready":
+			for id in BUILDINGS:
+				if m.owns_building(id) and m.building_has_ready(id, now): return BUILDINGS[id][2] + Vector3(0, 0, 5).rotated(Vector3.UP, deg_to_rad(BUILDINGS[id][3]))
+	return Vector3.INF
+
+## A golden arrow bobbing over the target with a pulsing ring on the ground.
+func _make_beacon() -> void:
+	_beacon = Node3D.new()
+	add_child(_beacon)
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color("#FFD54A")
+	glow.no_depth_test = true
+	glow.render_priority = 10
+	var arrow := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.42
+	cone.bottom_radius = 0.0
+	cone.height = 0.7
+	arrow.mesh = cone
+	arrow.material_override = glow
+	arrow.position.y = 2.6
+	arrow.name = "Arrow"
+	_beacon.add_child(arrow)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.75
+	tm.outer_radius = 0.95
+	ring.mesh = tm
+	var rm := glow.duplicate()
+	rm.no_depth_test = false
+	ring.material_override = rm
+	ring.scale = Vector3(1, 0.15, 1)
+	ring.position.y = 0.1
+	_beacon.add_child(ring)
+	var tw := arrow.create_tween().set_loops()
+	tw.tween_property(arrow, "position:y", 3.1, 0.45).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(arrow, "position:y", 2.6, 0.45).set_trans(Tween.TRANS_SINE)
+	var rt := ring.create_tween().set_loops()
+	rt.tween_property(ring, "scale", Vector3(1.25, 0.15, 1.25), 0.7).set_trans(Tween.TRANS_SINE)
+	rt.tween_property(ring, "scale", Vector3(1, 0.15, 1), 0.7).set_trans(Tween.TRANS_SINE)
+
+func _beacon_tick() -> void:
+	if _beacon == null: _make_beacon()
+	beacon_at = _beacon_target()
+	var near := beacon_at != Vector3.INF and Vector2(player.global_position.x - beacon_at.x, player.global_position.z - beacon_at.z).length() < 1.6
+	_beacon.visible = beacon_at != Vector3.INF and not near   # standing on it: the action button takes over
+	if _beacon.visible: _beacon.global_position = beacon_at
 
 # ------------------------------------------------------------------ market stall
 
@@ -1054,6 +1163,10 @@ func _process(dt: float) -> void:
 		_timers()
 		_ready_markers()
 		_soundscape_tick()
+	_beacon_clock += dt
+	if _beacon_clock > 0.25:
+		_beacon_clock = 0.0
+		_beacon_tick()
 	var t := Time.get_ticks_msec() / 1000.0   # wind through the crops
 	for i in _plots.size():
 		var crop := _plots[i].get_node_or_null("Crop")

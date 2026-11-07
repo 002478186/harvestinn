@@ -271,6 +271,9 @@ static func assign_seats(prev: Dictionary, ids: Array, tables: int) -> Dictionar
 func table_pos(gid: String) -> Vector3:
 	return ORIGIN + DINING[int(_seats.get(gid, 0))]
 
+func exit_spot() -> Vector3:
+	return ORIGIN + Vector3(0, 0, _size().y / 2.0 - 0.3)
+
 func _reset_life() -> void:
 	if life: life.queue_free()
 	life = null

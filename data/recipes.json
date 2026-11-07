@@ -25,7 +25,7 @@
   "blanket":        {"building": "loom",         "inputs": {"yarn": 3}, "outputs": {"blanket": 1}, "seconds": 3600, "xp": 25, "unlock_level": 23},
   "sweater":        {"building": "loom",         "inputs": {"yarn": 2}, "outputs": {"sweater": 1}, "seconds": 2700, "xp": 20, "unlock_level": 24},
 
-  "carrot_stew":    {"building": "kitchen",      "inputs": {"carrot": 2, "wheat": 2}, "outputs": {"carrot_stew": 1}, "seconds": 30, "xp": 3, "unlock_level": 1},
+  "carrot_stew":    {"building": "kitchen",      "inputs": {"carrot": 2, "wheat": 2}, "outputs": {"carrot_stew": 1}, "seconds": 20, "xp": 3, "unlock_level": 1},
   "baked_potato":   {"building": "kitchen",      "inputs": {"potato": 2, "wheat": 1}, "outputs": {"baked_potato": 1}, "seconds": 60, "xp": 3, "unlock_level": 2},
   "tomato_soup":    {"building": "kitchen",      "inputs": {"tomato": 2, "carrot": 1}, "outputs": {"tomato_soup": 1}, "seconds": 120, "xp": 5, "unlock_level": 3},
   "corn_chowder":   {"building": "kitchen",      "inputs": {"corn": 2, "potato": 2}, "outputs": {"corn_chowder": 1}, "seconds": 180, "xp": 5, "unlock_level": 4},

@@ -68,6 +68,11 @@ func _ready() -> void:
 		Game.set_model(GameModel.new_game(Game.now()))
 		Game.model.s["avatar"]["model"] = "Rogue_Hooded"
 		Game.welcome = {}
+	for a in OS.get_cmdline_user_args():   # dev: -- --tut=3 jumps to a tutorial step (with the field bought)
+		if a.begins_with("--tut="):
+			if int(a.substr(6)) >= 2 and Game.model.s["plots"].is_empty(): Game.model.buy_parcel()
+			Game.model.s["tutorial"] = int(a.substr(6))
+			Game.model.event.emit("tutorial", {})
 	var clean := "--clean" in OS.get_cmdline_user_args()   # dev: screenshots without popups
 	if clean:
 		Game.model.s["daily"] = {"last": GameModel.local_day(Game.now()), "streak": 1}
@@ -89,6 +94,11 @@ func _process(_dt: float) -> void:
 	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
 	Sfx.set_night(world.day.is_night())
+	var cam := get_viewport().get_camera_3d()
+	if cam and world.beacon_at != Vector3.INF and not player.frozen:
+		var at: Vector3 = world.beacon_at + Vector3(0, 2.5, 0)
+		hud.point_to(cam.unproject_position(at), cam.is_position_behind(at))
+	else: hud.point_to(Vector2(INF, INF), false)
 	Sfx.duck(player.frozen)
 	hud.action_btn.visible = hud.action_btn.visible and not player.frozen and hud.action_btn.text != ""
 	hud.set_seed(seed if hud.action_btn.visible and world._current.has("plot") and Game.model.s["plots"][world._current["plot"]]["crop"] == "" else "")

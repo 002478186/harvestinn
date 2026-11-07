@@ -15,7 +15,7 @@ func test_roundtrip_keeps_ints_and_state() -> bool:
 	eq(d["coins"], m.s["coins"], "coins")
 	eq(typeof(d["level"]), TYPE_INT, "level stays int")
 	eq(d["plots"][0]["crop"], "wheat", "plot")
-	eq(d["plots"][0]["ready_at"], 1060, "timer")
+	eq(d["plots"][0]["ready_at"], 1000 + int(GameData.crops()["wheat"]["grow_seconds"]), "timer")
 	return true
 
 func test_corrupt_main_falls_back_to_bak() -> bool:
@@ -48,8 +48,8 @@ func test_rejects_newer_and_garbage() -> bool:
 
 func test_offline_summary_counts_finished_crops() -> bool:
 	var m := new_farm(0.0)
-	m.plant(0, "wheat", 0.0)     # ready at 60
-	m.plant(1, "carrot", 0.0)    # ready at 300
+	m.plant(0, "wheat", 0.0)     # ready at 45
+	m.plant(1, "carrot", 0.0)    # ready at 150
 	var w := m.offline_summary(10.0, 100.0)
 	eq(w["crops"], 1, "only wheat finished while away")
 	eq(m.harvest(0, 100.0), "", "and it's harvestable")

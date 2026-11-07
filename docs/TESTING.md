@@ -21,7 +21,7 @@ combines them into one image. `-- --perf` prints FPS, draw calls and triangles e
    Walking into trees or buildings: the camera slides in instead of clipping.
 3. **Sweep:** hold the green button and walk across a field: every plot you cross gets planted
    (or harvested when ripe). Watch the produce pop out and fly to you.
-4. **Timers and offline:** plant carrots (5 min), close the app completely, wait 6 minutes, reopen:
+4. **Timers and offline:** plant carrots (2.5 min), close the app completely, wait 3 minutes, reopen:
    "Welcome back" lists what finished, and the carrots are ready.
 5. **Level-ups:** at level 2 a popup lists the new unlocks and Marigold says something new.
 6. **Workshops:** at level 4 buy the Windmill (Shop → Buildings), make flour, collect it.

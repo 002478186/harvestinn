@@ -234,6 +234,54 @@ func tick(now: float) -> void:
 
 # ------------------------------------------------------------ tutorial
 
+# ------------------------------------------------------------ daily goals
+
+## Today's three goals (after the tutorial): progress counts from the stats at the day's start.
+## [{stat, n, text, progress, done, claimed, coins, xp}]
+func daily_goals(now: float) -> Array:
+	if not tutorial_step().is_empty(): return []
+	var cfg: Dictionary = GameData.economy()["daily_goals"]
+	var day := local_day(now)
+	var g: Dictionary = s.get("goals", {})
+	if not g.has("picks") or int(g["day"]) != day:
+		var pool: Array = []
+		for k in cfg["pool"].size():
+			if is_unlocked(int(cfg["pool"][k]["unlock_level"])): pool.append(k)
+		var picks: Array = []
+		var h := absi(("goals:%d" % day).hash())
+		while picks.size() < mini(int(cfg["count"]), pool.size()):
+			var k: int = pool[h % pool.size()]
+			if not k in picks: picks.append(k)
+			h = absi(str(h).hash())
+		var t := clampf((int(s["level"]) - 1) / 19.0, 0.0, 1.0)
+		var base := {}
+		for k in picks: base[cfg["pool"][k]["stat"]] = int(s["stats"].get(cfg["pool"][k]["stat"], 0))
+		g = {"day": day, "picks": picks, "base": base, "claimed": picks.map(func(_k): return false), "bonus": false,
+			"n": picks.map(func(k): return int(round(lerpf(cfg["pool"][k]["n"][0], cfg["pool"][k]["n"][1], t)))),
+			"coins": int(round(lerpf(cfg["reward"]["coins"][0], cfg["reward"]["coins"][1], t))), "xp": int(round(lerpf(cfg["reward"]["xp"][0], cfg["reward"]["xp"][1], t)))}
+		s["goals"] = g
+	var out := []
+	for i in g["picks"].size():
+		var p: Dictionary = cfg["pool"][int(g["picks"][i])]
+		var n := int(g["n"][i])
+		var prog := mini(n, int(s["stats"].get(p["stat"], 0)) - int(g["base"].get(p["stat"], 0)))
+		out.append({"stat": p["stat"], "n": n, "text": p["text"] % n, "progress": prog, "done": prog >= n, "claimed": bool(g["claimed"][i]), "coins": int(g["coins"]), "xp": int(g["xp"])})
+	return out
+
+func claim_goal(i: int, now: float) -> String:
+	var goals := daily_goals(now)
+	if i < 0 or i >= goals.size(): return "unknown"
+	if not goals[i]["done"]: return "not_ready"
+	if goals[i]["claimed"]: return "claimed"
+	s["goals"]["claimed"][i] = true
+	add_coins(int(goals[i]["coins"]))
+	add_xp(int(goals[i]["xp"]))
+	if not s["goals"]["bonus"] and s["goals"]["claimed"].all(func(c): return c):
+		s["goals"]["bonus"] = true
+		add_gems(int(GameData.economy()["daily_goals"]["bonus"]["gems"]))
+	event.emit("goal", {"index": i})
+	return ""
+
 func tutorial_step() -> Dictionary:
 	var steps := GameData.tutorial()
 	var i := int(s["tutorial"])

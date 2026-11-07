@@ -27,6 +27,15 @@ func _ready() -> void:
 	_build_top(safe)
 	_build_bottom(safe)
 	_build_side(safe)
+	_build_goals(safe)
+	edge_arrow.polygon = PackedVector2Array([Vector2(34, 0), Vector2(-18, -26), Vector2(-8, 0), Vector2(-18, 26)])
+	edge_arrow.color = Color("#FFD54A")
+	edge_arrow.visible = false
+	edge_arrow.scale = Vector2(1.6, 1.6)
+	root.add_child(edge_arrow)
+	var ap := edge_arrow.create_tween().set_loops()   # pulse so it catches the eye
+	ap.tween_property(edge_arrow, "scale", Vector2(1.9, 1.9), 0.4).set_trans(Tween.TRANS_SINE)
+	ap.tween_property(edge_arrow, "scale", Vector2(1.6, 1.6), 0.4).set_trans(Tween.TRANS_SINE)
 	clock = UI.label("", 24, Color.WHITE, 700, false)
 	clock.add_theme_color_override("font_outline_color", UI.INK)
 	clock.add_theme_constant_override("outline_size", 8)
@@ -139,6 +148,70 @@ func set_action(label: String, icon_name: String) -> void:
 		tw.tween_property(action_btn, "scale", Vector2(1.08, 1.08), 0.08)
 		tw.tween_property(action_btn, "scale", Vector2.ONE, 0.12)
 
+## Off-screen target: a golden arrow on the screen edge pointing at it.
+var edge_arrow := Polygon2D.new()
+
+func point_to(screen: Vector2, behind: bool) -> void:
+	var view := root.get_viewport_rect().size
+	var margin := Vector2(70, 200)
+	var inside := not behind and Rect2(margin * 0.5, view - margin).has_point(screen)
+	edge_arrow.visible = not inside and screen.x < INF
+	if not edge_arrow.visible: return
+	var c := view / 2
+	var dir := (screen - c) * (-1.0 if behind else 1.0)
+	if dir.length() < 1.0: dir = Vector2.DOWN
+	var k := minf((c.x - margin.x) / maxf(absf(dir.x), 0.001), (c.y - margin.y) / maxf(absf(dir.y), 0.001))
+	edge_arrow.position = c + dir * k
+	edge_arrow.rotation = dir.angle()
+
+## Today's goals, top left (after the tutorial): progress, then a Claim button when done.
+var goals_box := VBoxContainer.new()
+
+func _build_goals(safe: Vector2) -> void:
+	goals_box.position = Vector2(16, safe.x + 104)
+	goals_box.custom_minimum_size.x = 330
+	goals_box.add_theme_constant_override("separation", 6)
+	goals_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(goals_box)
+	_refresh_goals()
+
+func _refresh_goals() -> void:
+	for c in goals_box.get_children(): c.queue_free()
+	var goals: Array = Game.model.daily_goals(Game.now())
+	if goals.is_empty() or goals.all(func(g): return g["claimed"]): return
+	var head := UI.label(tr("Today's goals"), 20, Color.WHITE, 700, false)
+	head.add_theme_color_override("font_outline_color", UI.INK)
+	head.add_theme_constant_override("outline_size", 7)
+	goals_box.add_child(head)
+	for i in goals.size():
+		var g: Dictionary = goals[i]
+		if g["claimed"]: continue
+		if g["done"]:
+			var b := UI.button(tr("%s · claim %d") % [tr(g["text"]), g["coins"]], func(): pass, UI.MEADOW, UI.icon("coin"))
+			b.pressed.connect(func(): _claim(i, b))
+			b.add_theme_font_size_override("font_size", 20)
+			b.custom_minimum_size = Vector2(330, 64)
+			goals_box.add_child(b)
+			continue
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UI.box(Color(1, 0.97, 0.88, 0.88), 16, 3))
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var h := HBoxContainer.new()
+		p.add_child(h)
+		var l := UI.label(tr(g["text"]), 19, UI.INK, 700, false)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(l)
+		h.add_child(UI.label("%d/%d" % [g["progress"], g["n"]], 19, UI.RED, 700, false))
+		goals_box.add_child(p)
+
+func _claim(i: int, from: Control) -> void:
+	if Game.model.claim_goal(i, Game.now()) != "": return
+	Sfx.play("achieve")
+	Sfx.buzz("medium")
+	var at := from.get_global_rect().get_center() if is_instance_valid(from) else root.get_viewport_rect().size / 2
+	for k in 4: fly(UI.icon("coin"), at, "coins")
+	fly(UI.icon("xp"), at, "xp")
+
 ## Right-hand column for secondary screens (orders, daily reward, achievements).
 var side := VBoxContainer.new()
 
@@ -169,6 +242,8 @@ func _on_event(name: String, d: Dictionary) -> void:
 			pass
 	if name in ["coins", "gems", "xp", "reputation", "reset", "level_up"]:
 		_refresh()
+	if name in ["harvest", "plot", "served", "sold", "collect", "animal", "job", "goal", "tutorial", "level_up", "reset"]:
+		_refresh_goals.call_deferred()
 
 func _refresh() -> void:
 	var s := Game.model.s

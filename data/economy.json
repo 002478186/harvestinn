@@ -11,7 +11,7 @@
   "max_level": 50,
   "xp_curve": {
     "base": 20,
-    "exponent": 1.55,
+    "exponent": 1.6,
     "_formula": "xp_to_next(L) = round(base * L^exponent)"
   },
   "level_up_gems": {
@@ -239,5 +239,96 @@
     "start_hour": 9,
     "lamps_on": 18.5,
     "lamps_off": 6.5
+  },
+  "daily_goals": {
+    "_doc": "Three goals a day after the tutorial, picked by day from the pool (only unlocked ones). n scales from n[0] at level 1 to n[1] at level 20. Each goal pays reward; finishing all three pays bonus.",
+    "count": 3,
+    "pool": [
+      {
+        "stat": "harvests",
+        "n": [
+          6,
+          30
+        ],
+        "text": "Harvest %d crops",
+        "unlock_level": 1
+      },
+      {
+        "stat": "planted",
+        "n": [
+          6,
+          30
+        ],
+        "text": "Plant %d seeds",
+        "unlock_level": 1
+      },
+      {
+        "stat": "served",
+        "n": [
+          2,
+          8
+        ],
+        "text": "Serve %d guests",
+        "unlock_level": 1
+      },
+      {
+        "stat": "sold",
+        "n": [
+          5,
+          25
+        ],
+        "text": "Sell %d things at the stall",
+        "unlock_level": 1
+      },
+      {
+        "stat": "cooked",
+        "n": [
+          2,
+          8
+        ],
+        "text": "Cook %d meals",
+        "unlock_level": 1
+      },
+      {
+        "stat": "animals_fed",
+        "n": [
+          3,
+          12
+        ],
+        "text": "Feed animals %d times",
+        "unlock_level": 10
+      },
+      {
+        "stat": "animal_goods",
+        "n": [
+          3,
+          12
+        ],
+        "text": "Collect %d animal goods",
+        "unlock_level": 10
+      },
+      {
+        "stat": "pets",
+        "n": [
+          3,
+          8
+        ],
+        "text": "Pet animals %d times",
+        "unlock_level": 10
+      }
+    ],
+    "reward": {
+      "coins": [
+        30,
+        300
+      ],
+      "xp": [
+        10,
+        80
+      ]
+    },
+    "bonus": {
+      "gems": 3
+    }
   }
 }

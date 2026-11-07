@@ -1,7 +1,7 @@
 {
   "_doc": "Crops grown on field plots. Times in seconds (real time). yield = units per harvest. model = Quaternius 3D crop family in assets/3d/crops (S_<model>_1..4). Item price lives in items.json.",
-  "wheat":      {"seed_cost": 1,  "grow_seconds": 60,    "yield": 2, "xp": 1,  "unlock_level": 1,  "model": "Wheat", "shape": "grain"},
-  "carrot":     {"seed_cost": 3,  "grow_seconds": 300,   "yield": 2, "xp": 2,  "unlock_level": 1,  "model": "Carrot", "shape": "root"},
+  "wheat":      {"seed_cost": 1,  "grow_seconds": 45,    "yield": 2, "xp": 1,  "unlock_level": 1,  "model": "Wheat", "shape": "grain"},
+  "carrot":     {"seed_cost": 3,  "grow_seconds": 150,   "yield": 2, "xp": 2,  "unlock_level": 1,  "model": "Carrot", "shape": "root"},
   "potato":     {"seed_cost": 4,  "grow_seconds": 600,   "yield": 2, "xp": 3,  "unlock_level": 2,  "model": "Beet", "shape": "round"},
   "tomato":     {"seed_cost": 6,  "grow_seconds": 1200,  "yield": 2, "xp": 4,  "unlock_level": 3,  "model": "Tomato", "shape": "round"},
   "corn":       {"seed_cost": 5,  "grow_seconds": 900,   "yield": 2, "xp": 3,  "unlock_level": 4,  "model": "Corn", "shape": "grain"},
