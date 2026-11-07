@@ -10,7 +10,7 @@ var fade := ColorRect.new()
 var seed := ""                 # last seed chosen: tapping empty plots re-plants it
 
 func _ready() -> void:
-	Toon.watch(get_tree())
+	Toon.watch(get_tree())   # one art style for every mesh that enters the world
 	if "--demo" in OS.get_cmdline_user_args():
 		Game.set_model(demo_farm(Game.now()))
 	world = preload("res://scripts/world/world.gd").new()
