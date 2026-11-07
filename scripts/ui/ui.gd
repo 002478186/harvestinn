@@ -96,8 +96,17 @@ static func button(text: String, on_press: Callable, color := RED, ic: Texture2D
 				sb.border_color = WHEAT
 				sb.set_border_width_all(6)
 			b.add_theme_stylebox_override(st, sb)
-	b.pressed.connect(func(): Sfx.play("click"); on_press.call())
+	b.pressed.connect(func(): Sfx.play("click"); Sfx.buzz("light"); on_press.call())
+	b.button_down.connect(func(): press_anim(b, true))
+	b.button_up.connect(func(): press_anim(b, false))
 	return b
+
+## Buttons sink when pressed and spring back with a little overshoot.
+static func press_anim(b: Control, down: bool) -> void:
+	b.pivot_offset = b.size / 2
+	var tw := b.create_tween()
+	if down: tw.tween_property(b, "scale", Vector2(0.92, 0.92), 0.06).set_ease(Tween.EASE_OUT)
+	else: tw.tween_property(b, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 static func icon_rect(t: Texture2D, size := 64) -> TextureRect:
 	var r := TextureRect.new()

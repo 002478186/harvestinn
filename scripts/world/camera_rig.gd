@@ -11,6 +11,8 @@ var cam := Camera3D.new()
 var look_offset := Vector3.ZERO
 var anchor := Vector3.ZERO          # inside a room: framing leans toward the room centre
 var anchor_weight := 0.0     # shift the framing (e.g. the character creator puts you in the top half)
+var trauma := 0.0             # camera punch: 0..1, decays; moves only the camera, never the player
+var _shake_t := 0.0
 var _touches := {}
 var _pinch := 0.0
 
@@ -34,8 +36,17 @@ func _physics_process(dt: float) -> void:
 		want = global_position + (hit["position"] - global_position) * 0.9
 	cam.global_position = cam.global_position.lerp(want, 1.0 - exp(-14.0 * dt)) if cam.global_position.distance_to(want) < 6.0 else want
 	cam.look_at(global_position + look_offset, Vector3.UP)
+	if trauma > 0.0:
+		trauma = maxf(trauma - 1.6 * dt, 0.0)
+		_shake_t += dt * 32.0
+		var k := trauma * trauma
+		cam.global_position += cam.global_basis * Vector3(sin(_shake_t * 1.7), sin(_shake_t * 2.3), 0) * 0.25 * k
+		cam.rotate_object_local(Vector3.FORWARD, sin(_shake_t * 1.1) * 0.04 * k)
 	if target.has_method("do_action"):
 		target.cam_yaw = yaw
+
+func punch(amount: float) -> void:
+	trauma = clampf(trauma + amount, 0.0, 1.0)
 
 func _unhandled_input(e: InputEvent) -> void:
 	var w := get_viewport().get_visible_rect().size.x

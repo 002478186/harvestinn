@@ -5,6 +5,7 @@ extends Node
 const SETTINGS := "user://settings.cfg"
 var sfx_on := true
 var music_on := true
+var haptics_on := true
 var _players: Array[AudioStreamPlayer] = []
 var _music := AudioStreamPlayer.new()
 var _ambience := AudioStreamPlayer.new()
@@ -15,6 +16,7 @@ func _ready() -> void:
 	if cfg.load(SETTINGS) == OK:
 		sfx_on = cfg.get_value("audio", "sfx", true)
 		music_on = cfg.get_value("audio", "music", true)
+		haptics_on = cfg.get_value("audio", "haptics", true)
 	for i in 6:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -47,6 +49,18 @@ func play(name: String, pitch_jitter := 0.08) -> void:
 			p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
 			p.play()
 			return
+
+## Haptic tap by importance: "light" (buttons, planting), "medium" (harvest, coins), "heavy" (level up, building).
+func buzz(tier := "light") -> void:
+	if not haptics_on or not OS.has_feature("mobile"): return
+	Input.vibrate_handheld({"light": 12, "medium": 25, "heavy": 60}.get(tier, 12), {"light": 0.35, "medium": 0.6, "heavy": 1.0}.get(tier, 0.35))
+
+func set_haptics(on: bool) -> void:
+	haptics_on = on
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS)
+	cfg.set_value("audio", "haptics", on)
+	cfg.save(SETTINGS)
 
 func play_music() -> void:
 	_music.stream = _stream("music_farm")

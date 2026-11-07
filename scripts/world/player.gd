@@ -55,10 +55,12 @@ func _physics_process(dt: float) -> void:
 	if body and not body.busy():
 		body.play("Idle" if speed < 0.2 else ("Running_A" if speed > WALK + 0.5 else "Walking_A"), 0.15)
 	_step -= dt * speed
-	if speed > 0.2 and _step <= 0.0 and Sfx.sfx_on:
+	if speed > 0.2 and _step <= 0.0:
 		_step = 1.7
-		_foot.pitch_scale = randf_range(0.9, 1.1)
-		_foot.play()
+		if Sfx.sfx_on:
+			_foot.pitch_scale = randf_range(0.9, 1.1)
+			_foot.play()
+		if speed > WALK + 0.5 and get_parent().has_method("dust"): get_parent().dust(global_position, 4, 0.1)   # running kicks up dust
 
 ## Face a world point and play a one-shot action (Interact, PickUp, Use_Item, Cheer...).
 func do_action(anim: String, at: Vector3) -> void:

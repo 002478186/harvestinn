@@ -183,6 +183,7 @@ static func settings(main) -> void:
 	body.add_child(UI.label(tr_("Sound"), 32, UI.RED, 600))
 	var on_off := func(on: bool) -> String: return tr_("On") if on else tr_("Off")
 	body.add_child(UI.button(tr_("Sound effects · %s") % on_off.call(Sfx.sfx_on), func(): Sfx.set_audio(not Sfx.sfx_on, Sfx.music_on); settings(main), UI.MEADOW if Sfx.sfx_on else UI.WOOD_DARK))
+	body.add_child(UI.button(tr_("Vibration · %s") % on_off.call(Sfx.haptics_on), func(): Sfx.set_haptics(not Sfx.haptics_on); settings(main), UI.MEADOW if Sfx.haptics_on else UI.WOOD_DARK))
 	body.add_child(UI.button(tr_("Music · %s") % on_off.call(Sfx.music_on), func(): Sfx.set_audio(Sfx.sfx_on, not Sfx.music_on); settings(main), UI.MEADOW if Sfx.music_on else UI.WOOD_DARK))
 	account_section(main, body)
 	body.add_child(UI.button(tr_("My Farmer"), func(): character_creator(main), UI.MEADOW))

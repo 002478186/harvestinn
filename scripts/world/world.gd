@@ -348,10 +348,19 @@ func _tuft_mesh() -> ArrayMesh:
 			st.set_color(v[1])
 			st.set_normal(Vector3.UP)
 			st.add_vertex(v[0])
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.roughness = 1.0
+	var sh := Shader.new()   # wind: tips sway, roots stay put; phase drifts across the valley
+	sh.code = """
+shader_type spatial;
+render_mode cull_disabled, diffuse_toon, specular_disabled;
+void vertex() {
+	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float gust = sin(TIME * 1.6 + w.x * 0.3 + w.z * 0.2) * 0.6 + sin(TIME * 2.7 + w.z * 0.5) * 0.4;
+	VERTEX.x += gust * 0.09 * VERTEX.y;
+	VERTEX.z += cos(TIME * 1.2 + w.x * 0.25) * 0.05 * VERTEX.y;
+}
+void fragment() { ALBEDO = COLOR.rgb; ROUGHNESS = 1.0; }"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
 	st.set_material(mat)
 	return st.commit()
 
@@ -879,6 +888,11 @@ func _refresh_plot(i: int) -> void:
 func harvest_fx(i: int, crop: String) -> void:
 	var at := plot_pos(i) + Vector3(0, 1, 0)
 	_pop_produce(plot_pos(i), crop)
+	dust(plot_pos(i))
+	if i < _plots.size():   # the soil squashes and springs back
+		var n := _plots[i]
+		n.scale = Vector3(1.18, 0.6, 1.18)
+		n.create_tween().tween_property(n, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	var p := CPUParticles3D.new()
 	p.position = at
 	p.one_shot = true
@@ -905,6 +919,39 @@ func harvest_fx(i: int, crop: String) -> void:
 		var screen := cam.unproject_position(at)
 		for k in 3: main.hud.fly(UI.item_tex(crop), screen, "barn")
 		main.hud.fly(UI.icon("xp"), screen, "xp")
+
+## A soft puff of soil dust at a world point (planting, harvesting, running).
+func dust(at: Vector3, amount := 12, size := 0.16) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = amount
+	p.lifetime = 0.6
+	p.explosiveness = 0.9
+	p.direction = Vector3.UP
+	p.spread = 80.0
+	p.initial_velocity_min = 0.8
+	p.initial_velocity_max = 2.0
+	p.gravity = Vector3(0, -1.5, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.2
+	var curve := Curve.new()   # puffs grow, then shrink away
+	curve.add_point(Vector2(0, 0.4))
+	curve.add_point(Vector2(0.3, 1.0))
+	curve.add_point(Vector2(1, 0))
+	p.scale_amount_curve = curve
+	var m := SphereMesh.new()
+	m.radius = size
+	m.height = size * 2.0
+	m.radial_segments = 6
+	m.rings = 3
+	p.mesh = m
+	var mat := _mat(Color("#C9A57A"))
+	p.material_override = mat
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(p)
+	p.global_position = at + Vector3(0, 0.2, 0)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
 
 ## A sprite pops up from `at`; with a HUD `target` it then flies there, else it just fades.
 func pop_icon(tex: Texture2D, at: Vector3, target: String) -> void:
@@ -957,6 +1004,13 @@ func _process(dt: float) -> void:
 		for i in _plots.size(): _refresh_plot(i)
 		_timers()
 		_ready_markers()
+	var t := Time.get_ticks_msec() / 1000.0   # wind through the crops
+	for i in _plots.size():
+		var crop := _plots[i].get_node_or_null("Crop")
+		if crop:
+			var p := _plots[i].position
+			crop.rotation.z = sin(t * 1.6 + p.x * 0.3 + p.z * 0.2) * 0.05
+			crop.rotation.x = cos(t * 1.2 + p.x * 0.25) * 0.03
 	# nearest interactable in range
 	var best := {}
 	var best_d := INF

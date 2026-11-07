@@ -48,6 +48,11 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():   # dev: -- --inside=inn / mill / storehouse
 		if a.begins_with("--inside="):
 			world.interiors.enter(a.substr(9), Vector3(0, 0, -9))
+	if "--harvest" in OS.get_cmdline_user_args():   # dev: harvest plot 0 after 1 s (juice check)
+		get_tree().create_timer(1.0).timeout.connect(func():
+			for id in Game.model.s["inv"].keys(): if GameData.storage_kind(id) == "silo": Game.model.s["inv"].erase(id)
+			Game.model.s["plots"][0]["ready_at"] = 0.0
+			plot_action(0))
 	if "--serve" in OS.get_cmdline_user_args():   # dev: serve the first inn guest after 1 s (eat/pay/leave)
 		get_tree().create_timer(1.0).timeout.connect(func():
 			Game.model.add_items(Game.model.inn()["guests"][0]["order"], true)
@@ -94,7 +99,18 @@ func _dress_player() -> void:
 
 func _on_event(name: String, d: Dictionary) -> void:
 	match name:
-		"harvest": world.harvest_fx(d["index"], d["crop"])
+		"harvest":
+			world.harvest_fx(d["index"], d["crop"])
+			rig.punch(0.22)
+			Sfx.buzz("medium")
+		"plot":
+			if Game.model.s["plots"][int(d.get("index", 0))]["crop"] != "":
+				world.dust(world.plot_pos(int(d.get("index", 0))))
+				Sfx.buzz("light")
+		"sold", "served", "collect": Sfx.buzz("medium")
+		"building":
+			rig.punch(0.35)
+			Sfx.buzz("heavy")
 		"avatar", "reset": _dress_player()
 		"achievement":
 			Sfx.play("level_up")
@@ -103,6 +119,8 @@ func _on_event(name: String, d: Dictionary) -> void:
 			if Game.model.tutorial_step().is_empty(): Screens.daily(self)
 		"helped": hud.toast(tr("%s watered one of your crops!") % d["name"])
 		"level_up":
+			rig.punch(0.5)
+			Sfx.buzz("heavy")
 			player.do_action("Cheer", player.global_position + Vector3(0, 0, -1))
 			Screens.talk(self, Dialogue.for_level_up(d["level"], d["unlocks"]))
 
