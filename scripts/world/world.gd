@@ -252,7 +252,6 @@ func _scenery() -> void:
 	for p in [Vector3(-9, 0, 2), Vector3(11, 0, 3), Vector3(-20, 0, 22), Vector3(34, 0, -8), Vector3(-33, 0, -25), Vector3(-30, 0, 8)]:
 		_place(["village/rock_single_A.gltf", "village/rock_single_C.gltf", "village/rock_single_E.gltf"][r.randi() % 3], 5.0, p, r.randf() * 360.0, true)
 	_scatter_mesh(_tuft_mesh(), 4500, 1.0, r)
-	_scatter("crops/S_Grass_2.glb", 400, 0.7, r, 6.0)
 	_square()
 	_pond(Vector3(-24, 0, 3), 7.0)
 	_place("farm/S_Well.glb", 1.3, Vector3(7, 0, -9), 0, true)
@@ -344,7 +343,7 @@ func _tuft_mesh() -> ArrayMesh:
 		var base := Vector3(cos(a), 0, sin(a)) * 0.06
 		var side := Vector3(-sin(a), 0, cos(a)) * 0.05
 		var tip := base * 3.0 + Vector3(0, r.randf_range(0.35, 0.6), 0)
-		for v in [[base - side, Color("#3E7A2A")], [base + side, Color("#3E7A2A")], [tip, Color("#A8D86A")]]:
+		for v in [[base - side, Color("#3E7A2A")], [base + side, Color("#3E7A2A")], [tip, Color("#8DC456")]]:
 			st.set_color(v[1])
 			st.set_normal(Vector3.UP)
 			st.add_vertex(v[0])
@@ -459,29 +458,6 @@ func _flowerbed(at: Vector3) -> void:
 		fl.material_override = _mat(colors[k % colors.size()], 0.6)
 		add_child(fl)
 
-## Scatters one model's mesh many times as a MultiMesh, avoiding paths, fields and the square.
-func _scatter(path: String, count: int, scale: float, r: RandomNumberGenerator, keep_out := 6.0) -> void:
-	var src: Node = (load("res://assets/3d/" + path) as PackedScene).instantiate()
-	var mi: MeshInstance3D = src.find_children("*", "MeshInstance3D", true, false)[0]
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mi.mesh
-	var xf: Array[Transform3D] = []
-	while xf.size() < count:
-		var p := Vector3(r.randf_range(-40, 40), 0, r.randf_range(-40, 46))
-		if not _free_spot(p): continue
-		xf.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * scale * r.randf_range(0.7, 1.3)), p))
-	mm.instance_count = xf.size()
-	for i in xf.size(): mm.set_instance_transform(i, xf[i])
-	var inst := MultiMeshInstance3D.new()
-	inst.multimesh = mm
-	inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	inst.visibility_range_end = 32.0        # grass far from the camera isn't drawn
-	inst.visibility_range_end_margin = 4.0
-	inst.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-	add_child(inst)
-	src.free()
-
 ## Instances a model; `solid` adds a box collider from its bounds so you can't walk through it.
 func _place(path: String, scale: float, pos: Vector3, yaw: float, solid := false, parent: Node3D = null) -> Node3D:
 	var ps: PackedScene = load("res://assets/3d/" + path) if ResourceLoader.exists("res://assets/3d/" + path) else null
@@ -593,7 +569,7 @@ func rebuild() -> void:
 
 const TABLES := [Vector3(-6, 0, -6.5), Vector3(6, 0, -6.5), Vector3(-9.5, 0, -10.5), Vector3(9.5, 0, -10.5), Vector3(-3, 0, -3.5), Vector3(3, 0, -3.5)]
 
-const ANIMAL_MODELS := {"cow": ["animals/SK_Cow.glb", 0.22], "sheep": ["animals/SK_Sheep.glb", 0.3], "goat": ["animals/SK_Llama.glb", 0.25]}
+const ANIMAL_MODELS := {"cow": ["animals/SK_Cow.glb", 0.22], "sheep": ["animals/SK_Sheep.glb", 0.3], "goat": ["animals/SK_Goat.glb", 0.25], "chicken": ["animals/SK_Chicken.glb", 0.27]}
 
 ## Every adopted animal wanders in front of its home; a "!" floats over ones with goods ready.
 func _animals(m: GameModel) -> void:
@@ -602,8 +578,8 @@ func _animals(m: GameModel) -> void:
 		var home: Vector3 = BUILDINGS[h][2] + Vector3(0, 0, 5.5).rotated(Vector3.UP, deg_to_rad(BUILDINGS[h][3]))
 		for i in m.s["animals"][h].size():
 			var kind: String = m.s["animals"][h][i]["type"]
-			var a: Node3D = _chicken() if kind == "chicken" else _place(ANIMAL_MODELS[kind][0], ANIMAL_MODELS[kind][1], Vector3.ZERO, 0, false, _dynamic)
-			if a.get_parent() == null: _dynamic.add_child(a)
+			var a: Node3D = _place(ANIMAL_MODELS[kind][0], ANIMAL_MODELS[kind][1], Vector3.ZERO, 0, false, _dynamic)
+			if kind == "goat": a.scale.y *= 0.82   # the deer-based goat is leggy: stockier reads as goat
 			var start := home + Vector3(-2.0 + (i % 3) * 2.0, 0, (i / 3) * 1.8)
 			a.position = start
 			_wander(a, start)
@@ -618,42 +594,26 @@ func _animals(m: GameModel) -> void:
 				mark.position = Vector3(0, 2.0 / a.scale.y, 0)
 				a.add_child(mark)
 
+## Strolls between nearby spots with a waddle (the CC0 models have no animations); hens peck.
 func _wander(a: Node3D, start: Vector3) -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = int(start.x * 100 + start.z)
+	var hen := a.scale.x > 0.26
 	var tw := a.create_tween().set_loops()
+	var from := start
 	for k in 4:
 		var to := start + Vector3(r.randf_range(-1.6, 1.6), 0, r.randf_range(-1.2, 1.2))
-		tw.tween_callback(func(): a.look_at(Vector3(to.x, a.position.y, to.z) + (to - a.position) * 0.01 + Vector3(0.001, 0, 0), Vector3.UP, true))
-		tw.tween_property(a, "position", to, r.randf_range(2.5, 4.5)).set_trans(Tween.TRANS_SINE)
+		var f := from
+		tw.tween_callback(func(): a.rotation.y = atan2(to.x - f.x, to.z - f.z))   # models face +Z
+		tw.tween_method(func(t: float):
+			a.position = f.lerp(to, t)
+			a.rotation.z = sin(t * TAU * 4.0) * 0.07, 0.0, 1.0, r.randf_range(2.5, 4.5))
+		if hen:
+			tw.tween_property(a, "rotation:x", 0.5, 0.15)
+			tw.tween_property(a, "rotation:x", 0.0, 0.2)
 		tw.tween_interval(r.randf_range(1.0, 3.0))
-
-## A small low-poly hen built from primitives (there's no CC0 chicken in our packs).
-func _chicken() -> Node3D:
-	var n := Node3D.new()
-	var parts := [[SphereMesh, Vector3(0, 0.32, 0), Vector3(0.5, 0.42, 0.62), Color("#FFFFFF")],
-		[SphereMesh, Vector3(0, 0.62, 0.22), Vector3(0.3, 0.32, 0.3), Color("#FFFFFF")],
-		[SphereMesh, Vector3(0, 0.82, 0.22), Vector3(0.1, 0.14, 0.16), Color("#E5483B")],
-		[PrismMesh, Vector3(0, 0.62, 0.42), Vector3(0.1, 0.1, 0.14), Color("#F2B84B")],
-		[SphereMesh, Vector3(0, 0.42, -0.32), Vector3(0.22, 0.3, 0.16), Color("#F3EEE2")]]
-	for p in parts:
-		var mi := MeshInstance3D.new()
-		mi.mesh = p[0].new()
-		mi.position = p[1]
-		mi.scale = p[2]
-		mi.material_override = _mat(p[3], 0.7)
-		n.add_child(mi)
-	for x in [-0.1, 0.1]:
-		var eye := MeshInstance3D.new()
-		var em := SphereMesh.new()
-		em.radius = 0.03
-		em.height = 0.06
-		eye.mesh = em
-		eye.position = Vector3(x, 0.68, 0.36)
-		eye.material_override = _mat(UI.INK, 0.3)
-		n.add_child(eye)
-	n.scale = Vector3.ONE * 1.4
-	return n
+		from = to
+	tw.tween_method(func(t: float): a.position = from.lerp(start, t), 0.0, 1.0, 2.0)
 
 ## Café tables in front of the inn: one per unlocked table, with the waiting guests seated.
 func _terrace(m: GameModel) -> void:

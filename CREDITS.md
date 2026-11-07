@@ -15,7 +15,11 @@ taken from any other game.
   Ultimate Crops, Farm Buildings, Farm Animals, via the CC0 mirror
   github.com/chibifire-stages/quaternius-stage, converted from USD to glTF with Blender
   (`tools/usd_to_glb.py`) into `assets/3d/crops`, `farm`, `animals`.
-- Ground, grass tufts, water, fountain, lamps, flower beds and hens are generated in code (`scripts/world/world.gd`).
+- **Hen:** Quaternius Ultimate Monsters (chicken), same CC0 mirror (`assets/3d/animals/SK_Chicken.glb`).
+- **Goat:** baked from the Quaternius Ultimate Animated Animals deer (CC0): recoloured coat plus horns,
+  by `tools/make_goat.py` (`assets/3d/animals/SK_Goat.glb`).
+- Ground, grass tufts, water, fountain, lamps and flower beds are generated in code (`scripts/world/world.gd`).
+- Every model is restyled at runtime by `scripts/world/toon.gd` (toon shading, rim light, one palette).
 
 ## 2D art
 UI icons, item icons, portraits and the logo are procedurally generated SVG

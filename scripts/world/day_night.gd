@@ -11,6 +11,7 @@ var lamps: Array[Dictionary] = []     # {mat: StandardMaterial3D, light: OmniLig
 var night_fx: Array[Node3D] = []      # stars, fireflies: visible at night only
 var hour := 9.0
 var forced := -1.0                    # dev: -- --hour=21
+var indoor := false                   # inside a room: the lamps light it, not the sun
 var _last_hour := -1
 
 ## Colour keys through the day: hour -> [sky top, horizon, sun colour, sun energy, ambient energy]
@@ -60,6 +61,9 @@ func _process(_dt: float) -> void:
 	sun.light_energy = lerpf(a[4], b[4], t)
 	env.ambient_light_energy = lerpf(a[5], b[5], t)
 	env.fog_light_color = sky.sky_horizon_color
+	if indoor:
+		sun.light_energy *= 0.3
+		env.ambient_light_energy *= 0.6
 	# sun arc: rises east (hour 6), highest at noon, sets west (18); a cool moon light at night
 	var day_t := (hour - 6.0) / 12.0
 	var elev: float = sin(clampf(day_t, 0.0, 1.0) * PI) * 62.0 + 8.0 if day_t > 0.0 and day_t < 1.0 else 35.0
@@ -67,7 +71,7 @@ func _process(_dt: float) -> void:
 	var night := is_night()
 	for l in lamps:
 		if l.has("mat"): l["mat"].emission_energy_multiplier = 2.5 if night else 0.2
-		l["light"].visible = night
+		l["light"].visible = night and not indoor
 	for n in night_fx: n.visible = night
 	if int(hour) != _last_hour:
 		_last_hour = int(hour)

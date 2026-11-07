@@ -10,6 +10,7 @@ var fade := ColorRect.new()
 var seed := ""                 # last seed chosen: tapping empty plots re-plants it
 
 func _ready() -> void:
+	Toon.watch(get_tree())   # one art style for every mesh that enters the world
 	if "--demo" in OS.get_cmdline_user_args():
 		Game.set_model(demo_farm(Game.now()))
 	world = preload("res://scripts/world/world.gd").new()
@@ -65,7 +66,8 @@ func _ready() -> void:
 		Game.model.s["daily"] = {"last": GameModel.local_day(Game.now()), "streak": 1}
 		Game.model.skip_tutorial()
 		if str(Game.model.s["avatar"].get("model", "")) == "": Game.model.s["avatar"]["model"] = "Rogue_Hooded"
-	if str(Game.model.s["avatar"].get("model", "")) == "" and not "--demo" in OS.get_cmdline_user_args():
+	if "--creator" in OS.get_cmdline_user_args(): Screens.character_creator(self)   # dev: screenshot the creator
+	elif str(Game.model.s["avatar"].get("model", "")) == "" and not "--demo" in OS.get_cmdline_user_args():
 		Screens.character_creator(self)
 	elif Game.model.tutorial_step().is_empty() and Game.model.daily_index(Game.now()) >= 0:
 		Screens.daily(self)

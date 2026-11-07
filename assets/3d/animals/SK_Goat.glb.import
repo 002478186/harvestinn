@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cglsp4bauvlei"
-path="res://.godot/imported/SK_Llama.glb-fe66d269fa81f803ab46d6f124c025da.scn"
+uid="uid://bq4gqngjpgigg"
+path="res://.godot/imported/SK_Goat.glb-7614796bb8014aa0ca833824f5a60f84.scn"
 
 [deps]
 
-source_file="res://assets/3d/animals/SK_Llama.glb"
-dest_files=["res://.godot/imported/SK_Llama.glb-fe66d269fa81f803ab46d6f124c025da.scn"]
+source_file="res://assets/3d/animals/SK_Goat.glb"
+dest_files=["res://.godot/imported/SK_Goat.glb-7614796bb8014aa0ca833824f5a60f84.scn"]
 
 [params]
 

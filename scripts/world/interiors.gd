@@ -15,18 +15,20 @@ func enter(id: String, exit_pos: Vector3) -> void:
 	kind = id
 	exit_to = exit_pos
 	build()
+	w.day.indoor = true
 	w.player.global_position = ORIGIN + Vector3(0, 0, _size().y / 2.0 - 3.5)
 	w.player.body.rotation.y = 0.0
 	var rig: Node3D = w.main.rig
 	rig.yaw = 0.0
-	rig.pitch = deg_to_rad(-55.0)
-	rig.dist = 14.0
+	rig.pitch = deg_to_rad(-48.0)
+	rig.dist = 13.0
 	rig.anchor = ORIGIN + Vector3(0, 0, -1.5)
 	rig.anchor_weight = 0.45
 	rig.global_position = rig.anchor
 
 func leave() -> void:
 	kind = ""
+	w.day.indoor = false
 	_reset_life()
 	for c in get_children(): c.queue_free()
 	w._interact_in.clear()
@@ -63,10 +65,10 @@ func _room(size: Vector2) -> void:
 	meadow.position = o + Vector3(0, -0.21, 0)
 	meadow.material_override = w._mat(Color("#6FA846"))
 	add_child(meadow)
-	_solid(_box(Vector3(size.x, 0.2, size.y), o + Vector3(0, -0.1, 0), Color("#B98552")))
+	_solid(_box(Vector3(size.x, 0.2, size.y), o + Vector3(0, -0.1, 0), Color("#9A6A40")))
 	for k in int(size.y / 1.1):   # floorboards
-		_box(Vector3(size.x, 0.02, 0.05), o + Vector3(0, 0.01, -size.y / 2 + 0.55 + k * 1.1), Color("#9C6B3E"))
-	var wall := Color("#EAD3A8")
+		_box(Vector3(size.x, 0.02, 0.05), o + Vector3(0, 0.01, -size.y / 2 + 0.55 + k * 1.1), Color("#6E4526"))
+	var wall := Color("#D9B98A")
 	_solid(_box(Vector3(size.x, WALL_H, 0.3), o + Vector3(0, WALL_H / 2, -size.y / 2), wall))
 	_solid(_box(Vector3(0.3, WALL_H, size.y), o + Vector3(-size.x / 2, WALL_H / 2, 0), wall))
 	_solid(_box(Vector3(0.3, WALL_H, size.y), o + Vector3(size.x / 2, WALL_H / 2, 0), wall))
@@ -87,8 +89,8 @@ func _room(size: Vector2) -> void:
 		_box(Vector3(2.2, 0.12, 0.1), o + Vector3(x, 1.3, -size.y / 2 + 0.2), Color("#8A5A3B"))
 	for p in [Vector3(-size.x / 4, 3.0, 0), Vector3(size.x / 4, 3.0, 0)]:
 		var l := OmniLight3D.new()
-		l.light_color = Color("#FFD6A0")
-		l.light_energy = 1.4
+		l.light_color = Color("#FFC98A")
+		l.light_energy = 1.6
 		l.omni_range = 12.0
 		l.shadow_enabled = false
 		l.position = o + p
@@ -122,7 +124,7 @@ func _sign(text: String, local: Vector3, size := 40, color := Color.WHITE) -> La
 	var l := Label3D.new()
 	l.text = text
 	l.font_size = size
-	l.pixel_size = 0.006
+	l.pixel_size = 0.0095   # read from the 14 m dollhouse camera on a phone
 	l.outline_size = 10
 	l.modulate = color
 	l.outline_modulate = UI.INK
@@ -195,9 +197,11 @@ func _inn() -> void:
 		var t: int = _seats[gid]
 		var at: Vector3 = DINING[t]
 		var line := ", ".join(g["order"].keys().map(func(k): return "%s ×%d" % [GameData.item_name(k), int(g["order"][k])]))
-		_sign(line, at + Vector3(0, 2.5, 1.0), 22, UI.CREAM)
-		for k in g["order"].size():
-			_icon(g["order"].keys()[k], at + Vector3(-0.4 + k * 0.8, 3.1, 1.0), 0.004)
+		var n: int = g["order"].size()
+		for k in n:   # order bubble: big food icons with counts (the action button carries the words)
+			var x := (k - (n - 1) / 2.0) * 0.95
+			_icon(g["order"].keys()[k], at + Vector3(x, 2.75, 1.0), 0.0075)
+			_sign("×%d" % int(g["order"].values()[k]), at + Vector3(x + 0.3, 2.35, 1.0), 34)
 		var ti: int = gi
 		var first: String = GameData.characters()[gid]["name"].split(" ")[0]
 		_add(func(): return (tr("Serve %s · %d coins") % [first, m.order_value(g["order"])]) if m.has_items(g["order"]) else tr("%s is waiting for %s") % [first, line],
@@ -368,6 +372,7 @@ func _workshop(id: String) -> void:
 	var props: Array = STATIONS.get(id, STATIONS["craft_table"])
 	_put(props[0][0], props[0][1], Vector3(-1.2, 0, -4.6), 0, true)
 	_put(props[1][0], props[1][1], Vector3(1.4, 0, -4.6), 0, true)
+	_dress_workshop(id)
 	var signature: String = GameData.recipes()[GameData.recipes_for(id)[0]]["outputs"].keys()[0]
 	_icon(signature, Vector3(0, 2.6, -5.3), 0.012)
 	_sign("%s · %s %d" % [b["name"], tr("Lv"), m.building_level(id) + 1], Vector3(0, 3.35, -5.3), 40, UI.WHEAT)
@@ -391,8 +396,25 @@ func _workshop(id: String) -> void:
 	var levels: Array = b["levels"]
 	var nxt := m.building_level(id) + 1
 	if nxt < levels.size():
-		_sign(tr("Upgrade: %d slots · %d coins") % [int(levels[nxt]["slots"]), int(levels[nxt]["cost"])], Vector3(-2.4, 1.8, -2.0), 22)
+		_sign(tr("Upgrade: %d slots · %d coins") % [int(levels[nxt]["slots"]), int(levels[nxt]["cost"])], Vector3(-1.6, 1.8, -2.0), 26)
 		_add(tr("Upgrade · %d coins") % int(levels[nxt]["cost"]), ORIGIN + Vector3(-3.0, 0, -1.0), 1.6, func(): w.main.act_result(Game.model.upgrade_building(id), "build"), "coin")
+
+## Lived-in clutter + a worker busy at the station, so every workshop feels staffed.
+func _dress_workshop(id: String) -> void:
+	_put("furniture/rug_rectangle_stripes_A.gltf", 1.2, Vector3(0, 0.01, -1.0))
+	_put("furniture/shelf_B_large_decorated.gltf", 1.0, Vector3(-3.3, 0, -5.1), 0, true)
+	_put("village/barrel.gltf", 4.0, Vector3(-3.9, 0, -2.6), 0, true)
+	_put("village/sack.gltf", 4.0, Vector3(-3.8, 0, -1.4), 30)
+	_put("village/crate_A_big.gltf", 3.5, Vector3(3.6, 0, -4.8), 10, true)
+	_put("furniture/lamp_standing.gltf", 1.0, Vector3(-3.9, 0, 2.5))
+	_put("furniture/pictureframe_medium.gltf", 1.0, Vector3(0, 2.3, -5.3))
+	var worker := Character3D.make(Character3D.MODELS[abs(id.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(id.hash()) % 360) / 360.0, 0.3, 1.0))
+	worker.scale = Vector3.ONE * 0.75
+	worker.position = ORIGIN + Vector3(-1.2, 0, -3.6)
+	add_child(worker)
+	var tw := worker.create_tween().set_loops()   # works the station: interact, pause, repeat
+	tw.tween_callback(func(): worker.current = ""; worker.play("Interact"))
+	tw.tween_interval(2.6)
 
 # ------------------------------------------------------------------ storehouse
 
