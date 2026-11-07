@@ -28,7 +28,7 @@ func test_3d_core_loop_through_the_game_scene() -> bool:
 	await tree.process_frame
 	await tree.process_frame
 	truthy(main.hud.action_btn.text.contains("Wheat"), "standing on a plot offers its action: " + main.hud.action_btn.text)
-	for screen in ["barn", "shop", "settings", "market", "orders", "friends", "trophy", "event"]:
+	for screen in ["barn", "shop", "settings", "market", "orders", "friends", "trophy", "event", "journal"]:
 		main._on_nav(screen)
 		truthy(main.hud.sheet_open(), screen + " opens")
 	game.model.tick(game.now())

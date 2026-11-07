@@ -44,3 +44,16 @@ func test_next_thing_follows_the_tutorial_then_priorities() -> bool:
 	m.plant(0, "wheat", 0.0)
 	eq(W.next_kind(m, 1000.0), "plot_ready", "ripe crops come first")
 	return true
+
+func test_inn_goal_climbs_the_reputation_ladder() -> bool:
+	var g := m.inn_goal()
+	eq(g["name"], "Roadside Rest", "start tier")
+	eq(g["next_name"], "Cozy Corner", "next tier")
+	eq(g["next_tables"], 2, "next tier seats two")
+	m.s["reputation"] = 25
+	g = m.inn_goal()
+	eq(g["name"], "Cozy Corner", "tier 2")
+	eq(g["progress"], 0.5, "halfway from 10 to 40")
+	m.s["reputation"] = 5000
+	truthy(m.inn_goal()["top"], "Legendary Lodge is the top")
+	return true

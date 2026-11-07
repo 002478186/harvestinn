@@ -27,6 +27,7 @@ func _ready() -> void:
 	_build_top(safe)
 	_build_bottom(safe)
 	_build_side(safe)
+	_build_ribbon(safe)
 	_build_goals(safe)
 	edge_arrow.polygon = PackedVector2Array([Vector2(34, 0), Vector2(-18, -26), Vector2(-8, 0), Vector2(-18, 26)])
 	edge_arrow.color = Color("#FFD54A")
@@ -39,7 +40,7 @@ func _ready() -> void:
 	clock = UI.label("", 24, Color.WHITE, 700, false)
 	clock.add_theme_color_override("font_outline_color", UI.INK)
 	clock.add_theme_constant_override("outline_size", 8)
-	clock.position = Vector2(24, safe.x + 70)
+	clock.position = Vector2(24, safe.x + 184)
 	root.add_child(clock)
 	_toast = UI.label("", 30, Color.WHITE)
 	_toast.add_theme_color_override("font_outline_color", UI.INK)
@@ -193,11 +194,61 @@ func point_to(screen: Vector2, behind: bool) -> void:
 	edge_arrow.position = c + dir * k
 	edge_arrow.rotation = dir.angle()
 
+## The goal ribbon under the top bar: how far the inn is from its next tier (the game's
+## objective) and what the next level unlocks. Tap it to open the journal.
+var _ribbon: PanelContainer
+var _goal_text: Label
+var _goal_bar: ProgressBar
+var _next_text: Label
+
+func _build_ribbon(safe: Vector2) -> void:
+	_ribbon = PanelContainer.new()
+	_ribbon.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_ribbon.offset_top = safe.x + 70
+	_ribbon.offset_left = 16
+	_ribbon.offset_right = -112
+	_ribbon.add_theme_stylebox_override("panel", UI.box(Color(1, 0.97, 0.88, 0.92), 18, 3))
+	_ribbon.gui_input.connect(func(e): if e is InputEventMouseButton and e.pressed: nav.emit("journal"))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ribbon.add_child(v)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(h)
+	var ic := UI.icon_rect(UI.icon("inn"), 30)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(ic)
+	_goal_text = UI.label("", 22, UI.INK, 700, false)
+	_goal_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(_goal_text)
+	_goal_bar = ProgressBar.new()
+	_goal_bar.show_percentage = false
+	_goal_bar.custom_minimum_size = Vector2(0, 12)
+	_goal_bar.max_value = 1.0
+	_goal_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(_goal_bar)
+	_next_text = UI.label("", 19, UI.WOOD_DARK, 700, false)
+	_next_text.clip_text = true
+	v.add_child(_next_text)
+	root.add_child(_ribbon)
+	_refresh_ribbon()
+
+func _refresh_ribbon() -> void:
+	if _ribbon == null: return
+	var m: GameModel = Game.model
+	var g := m.inn_goal()
+	_goal_text.text = tr("%s · top tier!") % tr(g["name"]) if g["top"] else tr("%s · %d/%d rep → %d tables") % [tr(g["name"]), g["rep"], g["next_rep"], g["next_tables"]]
+	_goal_bar.value = g["progress"]
+	var lv := int(m.s["level"]) + 1
+	var names: Array = GameData.unlocks_at(lv).map(func(u): return tr(u["name"]))
+	_next_text.text = tr("Level %d unlocks: %s") % [lv, ", ".join(names.slice(0, 3)) + ("…" if names.size() > 3 else "")] if not names.is_empty() else tr("Level %d: keep growing!") % lv
+
 ## Today's goals, top left (after the tutorial): progress, then a Claim button when done.
 var goals_box := VBoxContainer.new()
 
 func _build_goals(safe: Vector2) -> void:
-	goals_box.position = Vector2(16, safe.x + 104)
+	goals_box.position = Vector2(16, safe.x + 216)
 	goals_box.custom_minimum_size.x = 330
 	goals_box.add_theme_constant_override("separation", 6)
 	goals_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -271,6 +322,7 @@ func _on_event(name: String, d: Dictionary) -> void:
 			pass
 	if name in ["coins", "gems", "xp", "reputation", "reset", "level_up"]:
 		_refresh()
+	if name in ["reputation", "level_up", "reset", "rep_tier"]: _refresh_ribbon()
 	if name in ["harvest", "plot", "served", "sold", "collect", "animal", "job", "goal", "tutorial", "level_up", "reset"]:
 		_refresh_goals.call_deferred()
 

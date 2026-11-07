@@ -34,6 +34,7 @@ func _ready() -> void:
 	var tut := preload("res://scripts/ui/tutorial_card.gd").new()
 	tut.hud = hud
 	hud.root.add_child(tut)
+	tut.offset_top = hud._safe_margins().x + 182   # below the goal ribbon
 	world.action_changed.connect(hud.set_action)
 	hud.joystick.rig = rig
 	hud.joystick.tapped.connect(_on_tap)
@@ -72,6 +73,7 @@ func _ready() -> void:
 			var v := a.substr(9)
 			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
 			elif v == "seeds": Screens.seed_picker.call_deferred(self, 0)
+			elif v.begins_with("j:"): Screens.journal.call_deferred(self, v.substr(2))
 			elif v.begins_with("r:"): Screens.recipe_radial.call_deferred(self, v.substr(2), world.interiors.ORIGIN + Vector3(0, 1.2, -4.0))
 			else: Screens.open(self, v)
 	if "--fresh" in OS.get_cmdline_user_args():   # dev: a brand-new player who already made a farmer
@@ -141,7 +143,9 @@ func _on_event(name: String, d: Dictionary) -> void:
 			Sfx.play("achieve")
 			hud.toast(tr("Achievement: %s!") % tr(GameData.achievements()[d["id"]]["name"]))
 		"tutorial":
-			if Game.model.tutorial_step().is_empty(): Screens.daily(self)
+			if Game.model.tutorial_step().is_empty():
+				Screens.goal_intro(self)
+				Screens.daily(self)
 		"helped": hud.toast(tr("%s watered one of your crops!") % d["name"])
 		"level_up":
 			rig.punch(0.5)
@@ -158,6 +162,7 @@ func _on_nav(screen: String) -> void:
 		world.act()
 		world._last_swept = world._current.get("plot", -1)
 	elif screen == "seed" and world._current.has("plot"): Screens.seed_picker(self, world._current["plot"])
+	elif screen == "journal": Screens.journal(self)
 	elif screen == "sel_plant": Screens.seed_picker(self, world.selected[0])
 	elif screen == "sel_all": world.select_all_empty()
 	elif screen == "sel_clear": world.clear_selection()

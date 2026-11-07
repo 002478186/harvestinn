@@ -69,6 +69,63 @@ static func row(tex: Texture2D, title: String, sub: String, btn_text: String, on
 		h.add_child(b)
 	return p
 
+# ------------------------------------------------------------------ journal
+
+## The farm journal: the goal, how to play, what unlocks when, and strategy tips.
+## Built from the game data, so it never goes stale.
+static func journal(main, tab := "goal") -> void:
+	var m: GameModel = Game.model
+	var body: VBoxContainer = main.hud.sheet(tr_("Farm journal"), 0.88)
+	var tabs := HBoxContainer.new()
+	for t in [["goal", "Goal"], ["how", "How to play"], ["unlocks", "Unlocks"], ["tips", "Tips"]]:
+		var b := UI.button(tr_(t[1]), func(): journal(main, t[0]), UI.MEADOW if t[0] == tab else UI.WOOD_DARK)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 22)
+		tabs.add_child(b)
+	body.add_child(tabs)
+	match tab:
+		"goal":
+			body.add_child(UI.label(tr_("Make this little roadside inn the most loved in the valley: the Legendary Lodge."), 28))
+			body.add_child(UI.label(tr_("Every meal you serve earns reputation. Reputation grows the inn: more tables, more guests, bigger tips."), 22, UI.WOOD_DARK, 600))
+			var cur := int(m.rep_tier()["index"])
+			var tiers: Array = GameData.economy()["inn"]["reputation_tiers"]
+			for i in tiers.size():
+				var t: Dictionary = tiers[i]
+				var here := i == cur
+				var sub := tr_("%d reputation · %d tables · +%d%% tips") % [int(t["reputation"]), int(t["tables"]), int(round(i * float(GameData.economy()["inn"]["tip_per_reputation_tier"]) * 100))]
+				body.add_child(row(UI.icon("inn"), ("▶ " if here else "") + tr_(t["name"]), sub + (tr_("  · you are here") if here else ""), "", func(): pass, i <= cur))
+		"how":
+			for st in [["farm", "Grow", "Buy fields and plant seeds. Tap plots to select several, then Plant. Crops keep growing while the app is closed."],
+				["inn", "Cook", "In the inn kitchen, turn crops into meals (Carrot Stew: 2 carrots + 2 wheat). Workshops turn crops into flour, bread, jam and more."],
+				["rep", "Serve", "Guests order meals shown over their table. Serving pays 1.25x the meal's value plus tips, and earns reputation and XP."],
+				["market", "Sell", "Sell spare produce at Wren's stall. Prices change every day: the price board shows today's +/- %."],
+				["shop", "Expand", "Coins buy land, workshops and animals. XP raises your level, which unlocks new crops, recipes and buildings."]]:
+				body.add_child(row(UI.icon(st[0]), tr_(st[1]), tr_(st[2]), "", func(): pass))
+			body.add_child(UI.label(tr_("Controls: drag anywhere to walk. Tap a plot to select it. Two fingers: zoom and turn. The green button does what's in front of you; hold it and walk across a field to plant or harvest every plot."), 22, UI.WOOD_DARK, 600))
+		"unlocks":
+			var lv := int(m.s["level"])
+			for L in range(lv + 1, mini(lv + 12, int(GameData.economy()["max_level"]) + 1)):
+				var u: Array = GameData.unlocks_at(L)
+				if u.is_empty(): continue
+				body.add_child(row(UI.icon("xp"), tr_("Level %d") % L, ", ".join(u.map(func(x): return tr_(x["name"]))), "", func(): pass, L == lv + 1))
+		"tips":
+			for tip in ["Fast crops (wheat, carrots) while you play; slow, valuable crops before you close the app.",
+				"A meal served to a guest is worth far more than its raw crops at the stall. Sell only your surplus.",
+				"Guests only order meals you can make: keep the ingredients for your best meal in stock.",
+				"Early on, more land and the windmill pay back fastest.",
+				"Finish all three daily goals for bonus gems.",
+				"Happy animals (fed and petted) give extra goods."]:
+				body.add_child(UI.label("• " + tr_(tip), 24))
+
+## Shown once when the tutorial ends: what the whole game is for.
+static func goal_intro(main) -> void:
+	main.hud.queue_popup(func():
+		var v: VBoxContainer = main.hud.popup(tr_("Your goal"), UI.icon("inn"))
+		v.add_child(UI.label(tr_("Turn this Roadside Rest into the Legendary Lodge!"), 30))
+		v.add_child(UI.label(tr_("Serve guests to earn reputation. Each new tier adds a table, more guests and bigger tips. The ribbon at the top shows how close the next tier is."), 22, UI.WOOD_DARK, 600))
+		v.add_child(UI.button(tr_("Open the journal"), func(): main.hud.close_popup(v); journal(main), UI.WOOD_DARK))
+		v.add_child(UI.button(tr_("Let's go!"), func(): main.hud.close_popup(v), UI.MEADOW)))
+
 # ------------------------------------------------------------------ farm
 
 ## Seeds pop out in a ring around the plot: unlocked crops plus a teaser of the next one.
@@ -186,6 +243,7 @@ static func settings(main) -> void:
 	body.add_child(UI.button(tr_("Vibration · %s") % on_off.call(Sfx.haptics_on), func(): Sfx.set_haptics(not Sfx.haptics_on); settings(main), UI.MEADOW if Sfx.haptics_on else UI.WOOD_DARK))
 	body.add_child(UI.button(tr_("Music · %s") % on_off.call(Sfx.music_on), func(): Sfx.set_audio(Sfx.sfx_on, not Sfx.music_on); settings(main), UI.MEADOW if Sfx.music_on else UI.WOOD_DARK))
 	account_section(main, body)
+	body.add_child(UI.button(tr_("How to play"), func(): journal(main), UI.MEADOW))
 	body.add_child(UI.button(tr_("My Farmer"), func(): character_creator(main), UI.MEADOW))
 	body.add_child(UI.button(tr_("Villagers"), func(): cast(main), UI.WOOD_DARK))
 	if not m.tutorial_step().is_empty():

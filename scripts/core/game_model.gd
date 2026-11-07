@@ -447,6 +447,20 @@ func rep_tier() -> Dictionary:
 	out["index"] = tiers.find(best)
 	return out
 
+## The long-term goal: grow the inn up the reputation ladder to its top tier.
+## {name, rep, next_rep, next_name, next_tables, progress 0..1, top}
+func inn_goal() -> Dictionary:
+	var tiers: Array = GameData.economy()["inn"]["reputation_tiers"]
+	var t := rep_tier()
+	var i := int(t["index"])
+	var rep := int(s["reputation"])
+	if i >= tiers.size() - 1:
+		return {"name": t["name"], "rep": rep, "next_rep": rep, "next_name": t["name"], "next_tables": int(t["tables"]), "progress": 1.0, "top": true}
+	var nx: Dictionary = tiers[i + 1]
+	var lo := int(t["reputation"])
+	return {"name": t["name"], "rep": rep, "next_rep": int(nx["reputation"]), "next_name": nx["name"], "next_tables": int(nx["tables"]),
+		"progress": clampf(float(rep - lo) / maxf(1.0, float(int(nx["reputation"]) - lo)), 0.0, 1.0), "top": false}
+
 func add_reputation(n: int) -> void:
 	var before := int(rep_tier()["index"])
 	s["reputation"] = int(s["reputation"]) + n
