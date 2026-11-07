@@ -63,8 +63,11 @@ func _notification(what: int) -> void:
 			save()
 			get_tree().quit()
 
-## Dev aid: `godot --path . -- --shot=out.png` saves a screenshot after ~2 s and quits.
+## Dev aid: `godot --path . -- --shot=out.png` saves a screenshot after ~2 s (+ `--wait=s`) and quits.
 func _process(_dt: float) -> void:
+	var shot_frame := 120
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--wait="): shot_frame += int(float(a.substr(7)) * 60.0)
 	for a in OS.get_cmdline_user_args():
 		if a == "--perf" and Engine.get_process_frames() % 120 == 0 and Engine.get_process_frames() > 0:
 			print("PERF fps=%d draw_calls=%d objects=%d prims=%d" % [Engine.get_frames_per_second(),
@@ -72,6 +75,6 @@ func _process(_dt: float) -> void:
 				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
 				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
 			if Engine.get_process_frames() >= 600: get_tree().quit()
-		if a.begins_with("--shot=") and Engine.get_process_frames() == 120:
+		if a.begins_with("--shot=") and Engine.get_process_frames() == shot_frame:
 			get_viewport().get_texture().get_image().save_png(a.substr(7))
 			get_tree().quit()

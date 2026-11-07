@@ -11,6 +11,7 @@ var kind := ""                # "" outside | "inn" | "storehouse" | workshop id
 var exit_to := Vector3.ZERO
 
 func enter(id: String, exit_pos: Vector3) -> void:
+	_reset_life()
 	kind = id
 	exit_to = exit_pos
 	build()
@@ -26,6 +27,7 @@ func enter(id: String, exit_pos: Vector3) -> void:
 
 func leave() -> void:
 	kind = ""
+	_reset_life()
 	for c in get_children(): c.queue_free()
 	w._interact_in.clear()
 	w.player.global_position = exit_to
@@ -39,7 +41,8 @@ func _size() -> Vector2:
 	return {"inn": Vector2(12, 16), "storehouse": Vector2(10, 12)}.get(kind, Vector2(9, 11))
 
 func build() -> void:
-	for c in get_children(): c.queue_free()
+	for c in get_children():
+		if c != life: c.queue_free()
 	w._interact_in.clear()
 	if kind == "": return
 	_room(_size())
@@ -185,19 +188,17 @@ func _inn() -> void:
 		_put("restaurant/chair_A.gltf", 0.95, at + Vector3(0, 0, 1.15), 180)
 		_put("restaurant/chair_A.gltf", 0.95, at + Vector3(0, 0, -1.15))
 		_put("restaurant/plate.gltf", 0.4, at + Vector3(0, 0.52, 0))
-		if t >= guests.size(): continue
-		var g: Dictionary = guests[t]
+	_seats = assign_seats(_seats, guests.map(func(g): return g["char"]), int(tier["tables"]))
+	for gi in guests.size():
+		var g: Dictionary = guests[gi]
 		var gid: String = g["char"]
-		var who := Character3D.make(Character3D.MODELS[abs(gid.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(gid.hash()) % 360) / 360.0, 0.35, 1.0))
-		who.scale = Vector3.ONE * 0.72
-		who.position = ORIGIN + at + Vector3(0, 0.05, 1.0)
-		add_child(who)
-		who.play("Sit_Chair_Idle")
+		var t: int = _seats[gid]
+		var at: Vector3 = DINING[t]
 		var line := ", ".join(g["order"].keys().map(func(k): return "%s ×%d" % [GameData.item_name(k), int(g["order"][k])]))
 		_sign(line, at + Vector3(0, 2.5, 1.0), 22, UI.CREAM)
 		for k in g["order"].size():
 			_icon(g["order"].keys()[k], at + Vector3(-0.4 + k * 0.8, 3.1, 1.0), 0.004)
-		var ti: int = t
+		var ti: int = gi
 		var first: String = GameData.characters()[gid]["name"].split(" ")[0]
 		_add(func(): return (tr("Serve %s · %d coins") % [first, m.order_value(g["order"])]) if m.has_items(g["order"]) else tr("%s is waiting for %s") % [first, line],
 			ORIGIN + at + Vector3(0, 0, 1.9), 1.6, func(): w.main.serve_inside(ti), "inn")
@@ -232,6 +233,123 @@ func _inn() -> void:
 			var sp: Array = spots[f]
 			_put(sp[0], sp[1], sp[2], sp[3], true)
 	_add(tr("Buy inn furniture"), ORIGIN + Vector3(4.4, 0, -6.6), 1.8, func(): Screens.shop(w.main, "style"), "shop")
+	_sync_guests(guests)
+
+## Guests are persistent nodes under `life` (not rebuilt): new ones walk in from the door
+## and sit; served ones eat, pay with a coin pop and walk out (see serve_guest()).
+var life: Node3D
+var _guests := {}            # char id -> Character3D, seated or walking to the seat
+var _visit := false          # false on the first build of a visit: guests start seated
+var _seats := {}             # char id -> table index; stable while the guest stays
+
+## Keeps each remaining guest at their table; newcomers take the lowest free table.
+static func assign_seats(prev: Dictionary, ids: Array, tables: int) -> Dictionary:
+	var out := {}
+	for id in ids:
+		if prev.has(id) and int(prev[id]) < tables: out[id] = prev[id]
+	for id in ids:
+		if out.has(id): continue
+		for t in tables:
+			if not t in out.values():
+				out[id] = t
+				break
+	return out
+
+func table_pos(gid: String) -> Vector3:
+	return ORIGIN + DINING[int(_seats.get(gid, 0))]
+
+func _reset_life() -> void:
+	if life: life.queue_free()
+	life = null
+	_guests.clear()
+	_seats.clear()
+	_visit = false
+
+func _door() -> Vector3:
+	return ORIGIN + Vector3(0, 0, _size().y / 2.0 + 1.5)
+
+static func seat(t: int) -> Vector3:
+	return ORIGIN + DINING[t] + Vector3(0, 0.05, 1.0)
+
+## Door -> centre aisle -> in front of the chair -> chair.
+func _route_to(t: int) -> Array:
+	var s := seat(t)
+	return [ORIGIN + Vector3(0.35, 0, _size().y / 2.0 - 0.5), ORIGIN + Vector3(0.35, 0, s.z - ORIGIN.z + 0.9), s + Vector3(0, 0, 0.9), s]
+
+func _sync_guests(guests: Array) -> void:
+	if life == null or not is_instance_valid(life):
+		life = Node3D.new()
+		life.name = "Life"
+	if life.get_parent() == null: add_child(life)
+	var want := {}
+	for g in guests: want[g["char"]] = _seats.get(g["char"], 0)
+	for gid in _guests.keys():
+		if not gid in want and not _guests[gid].has_meta("leaving"):
+			_guests[gid].queue_free()
+			_guests.erase(gid)
+	for gid in want:
+		if _guests.has(gid): continue
+		var who := Character3D.make(Character3D.MODELS[abs(gid.hash()) % Character3D.MODELS.size()], Color.from_hsv(float(abs(gid.hash()) % 360) / 360.0, 0.35, 1.0))
+		who.scale = Vector3.ONE * 0.72
+		life.add_child(who)
+		_guests[gid] = who
+		var t: int = want[gid]
+		if _visit:
+			who.global_position = _door()
+			who.walk(_route_to(t), func(): _sit(who))
+		else:
+			who.global_position = seat(t)
+			who.play("Sit_Chair_Idle")
+	_visit = true
+
+func _sit(who: Character3D) -> void:
+	who.rotation.y = 0.0
+	who.play("Sit_Chair_Down", 0.15, "Sit_Chair_Idle")
+	if who.has_meta("served"): who.get_tree().create_timer(1.0).timeout.connect(func(): if is_instance_valid(who): _eat(who))
+
+## Called by main right before the model removes the guest: eat, pay, leave.
+func serve_guest(gid: String, coins: int) -> void:
+	var who: Character3D = _guests.get(gid)
+	if who == null: return
+	_guests.erase(gid)
+	who.set_meta("leaving", true)
+	who.set_meta("served", coins)
+	if not who.walking(): _eat(who)
+
+func _eat(who: Character3D) -> void:
+	var bowl: Node3D = w._place("restaurant/food_stew.gltf", 0.5, who.global_position + Vector3(0, 0.95, -0.75), 0, false, life)
+	who.eat(3.2, func():
+		if not is_instance_valid(who): return
+		bowl.queue_free()
+		_pay(who.global_position + Vector3(0, 1.9, 0), int(who.get_meta("served")))
+		who.play("Sit_Chair_StandUp", 0.15)
+		who.get_tree().create_timer(1.1).timeout.connect(func():
+			if not is_instance_valid(who): return
+			var s := who.global_position
+			who.walk([s + Vector3(0, 0, 0.9), Vector3(ORIGIN.x + 0.35, 0, s.z + 0.9), ORIGIN + Vector3(0.35, 0, _size().y / 2.0 - 0.5), _door() + Vector3(0, 0, 3)], who.queue_free)))
+
+## "+N" coin label that floats up, coins jingle and fly to the HUD counter.
+func _pay(at: Vector3, coins: int) -> void:
+	Sfx.play("coins")
+	var l := Label3D.new()
+	l.text = "+%d" % coins
+	l.font_size = 64
+	l.outline_size = 14
+	l.modulate = UI.WHEAT
+	l.outline_modulate = UI.INK
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	life.add_child(l)
+	l.global_position = at
+	var tw := l.create_tween()
+	tw.tween_property(l, "position:y", l.position.y + 1.2, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.9).set_delay(0.4)
+	tw.tween_callback(l.queue_free)
+	var cam := get_viewport().get_camera_3d()
+	if cam == null: return
+	var screen := cam.unproject_position(at)
+	for k in 4: w.main.hud.fly(UI.icon("coin"), screen, "coins")
+	w.main.hud.fly(UI.icon("rep"), screen, "rep")
 
 # ------------------------------------------------------------------ workshops
 

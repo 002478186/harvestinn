@@ -47,6 +47,10 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():   # dev: -- --inside=inn / mill / storehouse
 		if a.begins_with("--inside="):
 			world.interiors.enter(a.substr(9), Vector3(0, 0, -9))
+	if "--serve" in OS.get_cmdline_user_args():   # dev: serve the first inn guest after 1 s (eat/pay/leave)
+		get_tree().create_timer(1.0).timeout.connect(func():
+			Game.model.add_items(Game.model.inn()["guests"][0]["order"], true)
+			serve_at_table(0))
 	for a in OS.get_cmdline_user_args():   # dev aid for screenshots: -- --screen=shop / --screen=b:mill
 		if a.begins_with("--screen="):
 			var v := a.substr(9)
@@ -218,17 +222,15 @@ func serve_at_table(t: int) -> void:
 		hud.toast(tr("%s would love: %s") % [GameData.characters()[g["char"]]["name"].split(" ")[0],
 			", ".join(g["order"].keys().map(func(k): return "%s ×%d" % [GameData.item_name(k), int(g["order"][k])]))])
 		return
-	var at: Vector3 = world.interiors.ORIGIN + world.interiors.DINING[t]
+	var at: Vector3 = world.interiors.table_pos(g["char"])
+	var coins := m.order_value(g["order"])
 	var err := m.serve_guest(t)
 	if err != "":
 		say_error(err)
 		return
+	world.interiors.serve_guest(g["char"], coins)   # eats, then pays with a coin pop and leaves
 	player.do_action("Interact", at)
-	Sfx.play("coins")
-	var cam := get_viewport().get_camera_3d()
-	var screen := cam.unproject_position(at + Vector3(0, 1.5, 0))
-	for k in 4: hud.fly(UI.icon("coin"), screen, "coins")
-	hud.fly(UI.icon("rep"), screen, "rep")
+	Sfx.play("collect")
 	var lines: Array = GameData.characters()[g["char"]]["lines"].get("served", [])
 	if not lines.is_empty(): hud.toast("“%s”" % Dialogue.text(lines[0]))
 

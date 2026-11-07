@@ -73,6 +73,9 @@ func _ready() -> void:
 		_npcs[id] = c
 	Game.event.connect(_on_event)
 	rebuild()
+	var life := preload("res://scripts/world/villagers.gd").new()
+	life.w = self
+	add_child(life)
 
 func _on_event(name: String, d: Dictionary) -> void:
 	if name in ["reset", "land", "building", "animal", "guest", "served", "rep_tier"]:
