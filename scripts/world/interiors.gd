@@ -20,8 +20,9 @@ func enter(id: String, exit_pos: Vector3) -> void:
 	w.player.body.rotation.y = 0.0
 	var rig: Node3D = w.main.rig
 	rig.yaw = 0.0
-	rig.pitch = deg_to_rad(-48.0)
-	rig.dist = 13.0
+	rig.pitch = deg_to_rad(-60.0)   # top view into the cutaway room
+	rig.dist = 14.0
+	rig.ahead = 0.0
 	rig.anchor = ORIGIN + Vector3(0, 0, -1.5)
 	rig.anchor_weight = 0.45
 	rig.global_position = rig.anchor
@@ -34,8 +35,7 @@ func leave() -> void:
 	w._interact_in.clear()
 	w.player.global_position = exit_to
 	var rig: Node3D = w.main.rig
-	rig.pitch = deg_to_rad(-26.0)
-	rig.dist = 9.5
+	rig.top_view()
 	rig.anchor_weight = 0.0
 	rig.global_position = exit_to
 

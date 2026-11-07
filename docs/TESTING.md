@@ -2,15 +2,19 @@
 
 ## Automated (run before every commit; CI runs them too)
 ```bash
-godot --headless --path . --script res://tests/test_runner.gd   # 55 unit + UI smoke tests
+godot --headless --path . --script res://tests/test_runner.gd   # 70 unit, UI smoke and first-session tests
 backend/tests/run.sh                                             # SQL: accounts, trading, RLS, 2 race tests
 python3 tools/simulate_economy.py --check                        # data sanity + 7-day pacing
 python3 tools/dev_backend.py --e2e                               # real client ↔ local PostgREST (20 checks)
 ```
 
 ## Visual review
-`tools/shots.sh <dir>` renders the demo farm from five viewpoints and `tools/contact_sheet.sh <dir>`
-combines them into one image. `-- --perf` prints FPS, draw calls and triangles every 2 s.
+`tools/shots.sh <dir>` renders the nine store-listing views (farm day and night, fields, market, pens,
+inn, workshop, storehouse, creator) and `tools/contact_sheet.sh <dir>` combines them into one image.
+`-- --perf` prints uncapped FPS, draw calls and triangles every 2 s.
+Dev flags (after `--`): `--demo`, `--fresh`, `--clean` (no popups or beacon), `--at=x,z,yaw[,dist]`,
+`--inside=inn|<workshop>|storehouse`, `--hour=H`, `--creator`, `--screen=<name>|seeds|r:<workshop>`,
+`--tut=N` (jump to a tutorial step), `--serve` (inn guest eats, pays, leaves), `--harvest`, `--wait=s`.
 
 ## On your phone: a 15-minute play-test
 1. **First launch:** create your farmer (5 looks, 8 outfit colours, a name). Marigold's card then

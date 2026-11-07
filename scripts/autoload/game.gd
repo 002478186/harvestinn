@@ -65,6 +65,9 @@ func _notification(what: int) -> void:
 
 ## Dev aid: `godot --path . -- --shot=out.png` saves a screenshot after ~2 s (+ `--wait=s`) and quits.
 func _process(_dt: float) -> void:
+	if Engine.get_process_frames() == 1 and "--perf" in OS.get_cmdline_user_args():   # uncapped: measure real FPS
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		Engine.max_fps = 0
 	var shot_frame := 120
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--wait="): shot_frame += int(float(a.substr(7)) * 60.0)

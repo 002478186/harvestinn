@@ -94,6 +94,8 @@ func _process(_dt: float) -> void:
 	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
 	Sfx.set_night(world.day.is_night())
+	if not hud.sheet_open() and world.interiors.kind == "" and rig.pitch > deg_to_rad(rig.PITCH_RANGE.y) + 0.01:
+		rig.top_view()   # e.g. the creator closed with ✕: back to the top view
 	var cam := get_viewport().get_camera_3d()
 	if cam and world.beacon_at != Vector3.INF and not player.frozen:
 		var at: Vector3 = world.beacon_at + Vector3(0, 2.5, 0)

@@ -212,8 +212,10 @@ static func character_creator(main) -> void:
 	var a: Dictionary = m.s["avatar"]
 	if str(a.get("model", "")) == "":
 		m.set_avatar("model", Character3D.MODELS[0])
-	main.rig.dist = 6.5
-	main.rig.yaw = PI                        # camera in front: see your farmer's face
+	main.rig.dist = 7.0
+	main.rig.pitch = deg_to_rad(-38.0)       # raised, but in front: see your farmer's face
+	main.rig.ahead = 0.0
+	main.rig.yaw = PI
 	main.rig.look_offset = Vector3(0, -2.3, 0)   # farmer framed above the sheet
 	main.player.body.rotation.y = 0.0
 	var body: VBoxContainer = main.hud.sheet(tr_("Your farmer"), 0.6)
@@ -255,9 +257,8 @@ static func character_creator(main) -> void:
 			main.say_error("Please choose a kinder name")
 			return
 		Net.call_rpc("set_display_name", {"p_name": m.s["name"]})
-		main.rig.dist = 9.5
+		main.rig.top_view()
 		main.rig.yaw = 0.0
-		main.rig.look_offset = Vector3.ZERO
 		main.hud.close_sheet()
 		Sfx.play("level_up")
 		main.player.do_action("Cheer", main.rig.cam.global_position), UI.MEADOW))

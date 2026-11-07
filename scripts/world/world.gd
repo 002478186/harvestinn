@@ -98,6 +98,7 @@ func _environment() -> void:
 	sun.shadow_opacity = 0.85
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 40.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS   # half the shadow draws of 4 splits
 	add_child(sun)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
@@ -141,10 +142,7 @@ func _night_sky() -> void:
 	stars.emission_sphere_radius = 160.0
 	stars.gravity = Vector3.ZERO
 	stars.initial_velocity_max = 0.0
-	var sm := SphereMesh.new()
-	sm.radius = 0.35
-	sm.height = 0.7
-	stars.mesh = sm
+	stars.mesh = ball(0.35, 4)
 	var smat := StandardMaterial3D.new()
 	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	smat.albedo_color = Color("#FFF8E0")
@@ -163,10 +161,7 @@ func _night_sky() -> void:
 	flies.initial_velocity_min = 0.2
 	flies.initial_velocity_max = 0.6
 	flies.spread = 180.0
-	var fm := SphereMesh.new()
-	fm.radius = 0.05
-	fm.height = 0.1
-	flies.mesh = fm
+	flies.mesh = ball(0.05, 4)
 	var fmat := StandardMaterial3D.new()
 	fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	fmat.albedo_color = Color("#E8FF8A")
@@ -202,6 +197,16 @@ func _soundscape_tick() -> void:
 	var night := day.is_night()
 	for p in _day_sounds: p.stream_paused = night or interiors.kind != ""
 	for p in _night_sounds: p.stream_paused = not night or interiors.kind != ""
+
+## Low-poly sphere: the default SphereMesh is 64x32 segments (~4k triangles), far too many
+## for 400 stars, fireflies, flowers and particles on a phone.
+static func ball(radius: float, segments := 8) -> SphereMesh:
+	var m := SphereMesh.new()
+	m.radius = radius
+	m.height = radius * 2.0
+	m.radial_segments = segments
+	m.rings = segments / 2
+	return m
 
 func _mat(color: Color, rough := 0.9) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -240,7 +245,7 @@ func _ground() -> void:
 	floor.add_child(shape)
 	add_child(floor)
 	# dirt paths: village square and the lane down to the fields
-	for p in [[Vector3(0, 0.01, -6), Vector2(34, 6)], [Vector3(0, 0.01, 18), Vector2(4.5, 30)], [Vector3(16, 0.01, 17), Vector2(28, 4)]]:
+	for p in [[Vector3(0, 0.01, -6), Vector2(34, 6)], [Vector3(0, 0.01, 18), Vector2(4.5, 30)], [Vector3(16, 0.013, 17), Vector2(28, 4)]]:
 		var path := MeshInstance3D.new()
 		var q := PlaneMesh.new()
 		q.size = p[1]
@@ -456,10 +461,7 @@ func _lamp(at: Vector3) -> void:
 	post.material_override = _mat(Color("#4A2F1F"))
 	add_child(post)
 	var bulb := MeshInstance3D.new()
-	var bm := SphereMesh.new()
-	bm.radius = 0.22
-	bm.height = 0.44
-	bulb.mesh = bm
+	bulb.mesh = ball(0.22, 12)
 	bulb.position = at + Vector3(0, 2.7, 0)
 	var glow := _mat(Color("#FFE29A"))
 	glow.emission_enabled = true
@@ -486,12 +488,11 @@ func _flowerbed(at: Vector3) -> void:
 	var colors := [Color("#E83A5F"), Color("#F2B84B"), Color("#C97BB5"), Color("#FFFFFF"), Color("#F07F1E")]
 	for k in 10:
 		var fl := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.13
-		sm.height = 0.2
-		fl.mesh = sm
+		fl.mesh = ball(0.13, 8)
+		fl.scale.y = 0.77
 		fl.position = at + Vector3(-1.0 + (k % 5) * 0.5, 0.42, -0.25 + (k / 5) * 0.5)
 		fl.material_override = _mat(colors[k % colors.size()], 0.6)
+		fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(fl)
 
 ## Instances a model; `solid` adds a box collider from its bounds so you can't walk through it.
@@ -680,11 +681,11 @@ func _pen_fence(home: Vector3) -> void:
 	var c := home + Vector3(0, 0, 0.9)
 	var half := Vector2(3.6, 2.5)
 	for k in 3:
-		_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(-half.x + 1.2 + k * 2.4, 0, -half.y), 90, false, _dynamic)
+		_no_shadow(_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(-half.x + 1.2 + k * 2.4, 0, -half.y), 90, false, _dynamic))
 	for sx in [-1, 1]:
 		for k in 2:
-			_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * half.x, 0, -half.y + 1.25 + k * 2.5), 0, false, _dynamic)
-		_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * (half.x - 1.2), 0, half.y), 90, false, _dynamic)
+			_no_shadow(_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * half.x, 0, -half.y + 1.25 + k * 2.5), 0, false, _dynamic))
+		_no_shadow(_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * (half.x - 1.2), 0, half.y), 90, false, _dynamic))
 
 func _wander(a: Node3D, start: Vector3) -> void:
 	var r := RandomNumberGenerator.new()
@@ -789,9 +790,9 @@ func _parcel(p: int, owned: bool) -> void:
 	var seg := 2.3
 	for side in 2:
 		for k in int(size.x / seg):
-			_place("village/fence_wood_straight.gltf", 2.0, o + Vector3(seg * (k + 0.5), 0, -0.4 if side == 0 else size.z + 0.4), 90, false, _dynamic)
+			_no_shadow(_place("village/fence_wood_straight.gltf", 2.0, o + Vector3(seg * (k + 0.5), 0, -0.4 if side == 0 else size.z + 0.4), 90, false, _dynamic))
 	for k in int(size.z / seg):
-		_place("village/fence_wood_straight.gltf", 2.0, o + Vector3(-0.4, 0, seg * (k + 0.5)), 0, false, _dynamic)
+		_no_shadow(_place("village/fence_wood_straight.gltf", 2.0, o + Vector3(-0.4, 0, seg * (k + 0.5)), 0, false, _dynamic))
 
 func parcel_origin(p: int) -> Vector3:
 	return FIELD_ORIGIN + Vector3((p % 2) * PARCEL_STEP.x, 0, (p / 2) * PARCEL_STEP.z)
@@ -837,9 +838,10 @@ func _beacon_target() -> Vector3:
 			for g in m.inn()["guests"]:
 				if kind == "guest" and (m.has_items(g["order"]) or not m.tutorial_step().is_empty()): return interiors.table_pos(g["char"]) + Vector3(0, 0, 1.9)
 			return Vector3.INF
-		if interiors.kind != "": return interiors.exit_spot()
+		if interiors.kind != "": return interiors.exit_spot() if not m.tutorial_step().is_empty() else Vector3.INF
 		return inn_door
-	if interiors.kind != "": return interiors.exit_spot()
+	if interiors.kind != "":   # outdoor target while inside: only nudge to the door during the tutorial
+		return interiors.exit_spot() if not m.tutorial_step().is_empty() else Vector3.INF
 	var pp := player.global_position
 	match kind:
 		"parcel": return _parcel_sign
@@ -873,9 +875,9 @@ func _make_beacon() -> void:
 	glow.render_priority = 10
 	var arrow := MeshInstance3D.new()
 	var cone := CylinderMesh.new()
-	cone.top_radius = 0.42
+	cone.top_radius = 0.32
 	cone.bottom_radius = 0.0
-	cone.height = 0.7
+	cone.height = 0.55
 	arrow.mesh = cone
 	arrow.material_override = glow
 	arrow.position.y = 2.6
@@ -883,8 +885,8 @@ func _make_beacon() -> void:
 	_beacon.add_child(arrow)
 	var ring := MeshInstance3D.new()
 	var tm := TorusMesh.new()
-	tm.inner_radius = 0.75
-	tm.outer_radius = 0.95
+	tm.inner_radius = 0.55
+	tm.outer_radius = 0.68
 	ring.mesh = tm
 	var rm := glow.duplicate()
 	rm.no_depth_test = false
@@ -901,7 +903,7 @@ func _make_beacon() -> void:
 
 func _beacon_tick() -> void:
 	if _beacon == null: _make_beacon()
-	beacon_at = _beacon_target()
+	beacon_at = _beacon_target() if not "--clean" in OS.get_cmdline_user_args() else Vector3.INF   # dev screenshots: no marker
 	var near := beacon_at != Vector3.INF and Vector2(player.global_position.x - beacon_at.x, player.global_position.z - beacon_at.z).length() < 1.6
 	_beacon.visible = beacon_at != Vector3.INF and not near   # standing on it: the action button takes over
 	if _beacon.visible: _beacon.global_position = beacon_at
@@ -932,7 +934,7 @@ func _build_stall() -> void:
 	for k in ids.size():
 		var id: String = ids[k]
 		var at: Vector3 = front + side * STALL_SLOTS[k]
-		_place("restaurant/%s.gltf" % CRATES.get(id, "crate"), 0.55, at, MARKET[3], false, _stall)
+		_no_shadow(_place("restaurant/%s.gltf" % CRATES.get(id, "crate"), 0.55, at, MARKET[3], false, _stall))
 		var icon := Sprite3D.new()
 		icon.texture = UI.item_tex(id)
 		icon.pixel_size = 0.006
@@ -1033,6 +1035,7 @@ func _refresh_plot(i: int) -> void:
 	for k in 4:   # four plants per plot
 		_place("crops/S_%s.glb" % stage, sc, Vector3(-0.5 + (k % 2), 0.12, -0.5 + (k / 2)), k * 90.0, false, crop)
 	_cull(crop, 45.0)
+	_no_shadow(crop)   # small and many: shadows cost more draws than they add
 	crop.scale = Vector3(0.3, 0.3, 0.3)
 	crop.create_tween().tween_property(crop, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if stage.ends_with("_4"):
@@ -1061,10 +1064,7 @@ func harvest_fx(i: int, crop: String) -> void:
 	p.spread = 60.0
 	p.initial_velocity_min = 3.0
 	p.initial_velocity_max = 6.0
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.08
-	mesh.height = 0.16
-	p.mesh = mesh
+	p.mesh = ball(0.08, 6)
 	var mat := _mat(Color(GameData.items()[crop]["color"]))
 	mat.emission_enabled = true
 	mat.emission = Color(GameData.items()[crop]["color"]) * 0.5
@@ -1097,12 +1097,7 @@ func dust(at: Vector3, amount := 12, size := 0.16) -> void:
 	curve.add_point(Vector2(0.3, 1.0))
 	curve.add_point(Vector2(1, 0))
 	p.scale_amount_curve = curve
-	var m := SphereMesh.new()
-	m.radius = size
-	m.height = size * 2.0
-	m.radial_segments = 6
-	m.rings = 3
-	p.mesh = m
+	p.mesh = ball(size, 6)
 	var mat := _mat(Color("#C9A57A"))
 	p.material_override = mat
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

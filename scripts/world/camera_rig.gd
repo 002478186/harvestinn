@@ -5,8 +5,14 @@ extends Node3D
 @export var follow_rate := 7.0
 var target: Node3D
 var yaw := 0.0
-var pitch := deg_to_rad(-26.0)
-var dist := 9.5
+## Top view, Hay Day style: a high angle that shows fields, pens and paths at a glance.
+const TOP_PITCH := -55.0
+const TOP_DIST := 17.0
+const AHEAD := 3.5          # metres the view leads the farmer: they sit in the lower third, the world ahead shows
+var ahead := AHEAD
+const PITCH_RANGE := Vector2(-72.0, -42.0)   # orbiting never drops to a low third-person angle
+var pitch := deg_to_rad(TOP_PITCH)
+var dist := TOP_DIST
 var cam := Camera3D.new()
 var look_offset := Vector3.ZERO
 var anchor := Vector3.ZERO          # inside a room: framing leans toward the room centre
@@ -24,7 +30,8 @@ func _ready() -> void:
 
 func _physics_process(dt: float) -> void:
 	if target == null: return
-	var focus := (target.global_position + Vector3(0, 1.6, 0)).lerp(anchor + Vector3(0, 1.0, 0), anchor_weight)
+	var lead := Vector3(0, 0, -ahead).rotated(Vector3.UP, yaw)
+	var focus := (target.global_position + Vector3(0, 1.6, 0) + lead).lerp(anchor + Vector3(0, 1.0, 0), anchor_weight)
 	global_position = global_position.lerp(focus, 1.0 - exp(-follow_rate * dt))
 	var offset := Vector3(0, 0, dist).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
 	var want := global_position + offset
@@ -45,6 +52,12 @@ func _physics_process(dt: float) -> void:
 	if target.has_method("do_action"):
 		target.cam_yaw = yaw
 
+func top_view() -> void:
+	pitch = deg_to_rad(TOP_PITCH)
+	dist = TOP_DIST
+	ahead = AHEAD
+	look_offset = Vector3.ZERO
+
 func punch(amount: float) -> void:
 	trauma = clampf(trauma + amount, 0.0, 1.0)
 
@@ -58,14 +71,14 @@ func _unhandled_input(e: InputEvent) -> void:
 		_touches[e.index] = e.position
 		if _touches.size() >= 2:
 			var s := _spread()
-			if _pinch > 0.0: dist = clampf(dist * _pinch / maxf(s, 1.0), 7.0, 22.0)
+			if _pinch > 0.0: dist = clampf(dist * _pinch / maxf(s, 1.0), 10.0, 26.0)
 			_pinch = s
 		else:
 			yaw -= e.relative.x * 0.008
-			pitch = clampf(pitch - e.relative.y * 0.004, deg_to_rad(-65.0), deg_to_rad(-15.0))
+			pitch = clampf(pitch - e.relative.y * 0.004, deg_to_rad(PITCH_RANGE.x), deg_to_rad(PITCH_RANGE.y))
 	elif e is InputEventMouseButton and e.pressed:
-		if e.button_index == MOUSE_BUTTON_WHEEL_UP: dist = maxf(7.0, dist * 0.9)
-		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: dist = minf(22.0, dist * 1.1)
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP: dist = maxf(10.0, dist * 0.9)
+		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: dist = minf(26.0, dist * 1.1)
 
 func _spread() -> float:
 	var p := _touches.values()
