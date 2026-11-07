@@ -28,6 +28,10 @@ def write(name, samples, gain=0.8):
         f = min(len(samples), int(SR * 0.015))
         for i in range(f): samples[len(samples) - f + i] *= 1 - i / f
     peak = max(1e-9, max(abs(s) for s in samples))
+    if name in LOOPS:   # soft saturation: about +6 dB of loudness for phone speakers, no hard clipping
+        samples = [math.tanh(2.2 * v / peak) / math.tanh(2.2) for v in samples]
+        peak = 1.0
+    gain = 0.9 if name not in LOOPS else 0.85   # every file near full scale; the mixer sets the balance
     k = gain / peak
     OUT.mkdir(parents=True, exist_ok=True)
     with wave.open(str(OUT / f"{name}.wav"), "wb") as w:

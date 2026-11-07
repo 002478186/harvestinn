@@ -6,7 +6,7 @@ extends Node
 
 const SETTINGS := "user://settings.cfg"
 const UI_SOUNDS := ["click", "pop", "error"]
-const MUSIC_DB := -9.0
+const MUSIC_DB := -5.0       # music files sit ~-14 dB RMS: -5 keeps them under the action sounds
 const DUCK_DB := -8.0
 var sfx_on := true
 var music_on := true
@@ -30,7 +30,7 @@ func _ready() -> void:
 			AudioServer.add_bus()
 			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
 			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), -4.0)
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), 0.0)
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("UI"), -6.0)
 	var lim := AudioEffectLimiter.new()   # safety net: stacked coins + music never clip
 	lim.ceiling_db = -1.0
@@ -44,7 +44,7 @@ func _ready() -> void:
 	_day.bus = "Music"
 	_night.bus = "Music"
 	_ambience.bus = "Ambience"
-	_ambience.volume_db = -14.0
+	_ambience.volume_db = -16.0   # the wind bed: felt, not heard
 	play_music()
 
 ## A looping copy of a WAV (seamless, no gap from restarting on `finished`).
@@ -71,7 +71,7 @@ func duck(on: bool) -> void:
 	_ducked = on
 	for bus in ["Music", "Ambience"]:
 		var idx := AudioServer.get_bus_index(bus)
-		var base := MUSIC_DB if bus == "Music" else -4.0
+		var base := MUSIC_DB if bus == "Music" else 0.0
 		create_tween().tween_method(func(db: float): AudioServer.set_bus_volume_db(idx, db),
 			AudioServer.get_bus_volume_db(idx), base + (DUCK_DB if on else 0.0), 0.3)
 
