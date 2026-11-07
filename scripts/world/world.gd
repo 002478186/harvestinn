@@ -78,8 +78,9 @@ func _ready() -> void:
 	add_child(life)
 
 func _on_event(name: String, d: Dictionary) -> void:
-	if name in ["reset", "land", "building", "animal", "guest", "served", "rep_tier"]:
+	if name in ["reset", "land", "building", "animal", "guest", "served", "rep_tier"] or name == "collect" and d.has("housing"):
 		rebuild.call_deferred()
+	if name in ["inventory", "sold"]: _build_stall.call_deferred()
 	if interiors.kind != "" and name in ["job", "collect", "guest", "served", "room", "inventory", "reputation", "purchase", "building", "storage", "coins"]:
 		interiors.build.call_deferred()
 	elif name in ["plot", "harvest"]:
@@ -406,8 +407,6 @@ func _square() -> void:
 		_lamp(p)
 	for p in [Vector3(-8, 0, -1.2), Vector3(8, 0, -1.2), Vector3(-4.5, 0, -12.5), Vector3(4.5, 0, -12.5)]:
 		_flowerbed(p)
-	for c in [["village/crate_A_big.gltf", Vector3(-11, 0, -4)], ["village/sack.gltf", Vector3(-10.2, 0, -3.3)], ["village/barrel.gltf", Vector3(-18, 0, -5)], ["village/crate_open.gltf", Vector3(-17.5, 0, -3.8)]]:
-		_place(c[0], 6.0, c[1], randf() * 90.0, true)
 
 func _lamp(at: Vector3) -> void:
 	var post := MeshInstance3D.new()
@@ -510,6 +509,7 @@ func rebuild() -> void:
 	_building("inn", true)
 	_place(MARKET[0], MARKET[1], MARKET[2], MARKET[3], true, _dynamic)
 	_add("Open market", MARKET[2] + Vector3(2, 0, 4), 4.0, func(): Screens.market(main), "market")
+	_build_stall()
 	for id in BUILDINGS:
 		if id != "inn": _building(id, m.owns_building(id))
 	_terrace(m)
@@ -583,18 +583,47 @@ func _animals(m: GameModel) -> void:
 			var start := home + Vector3(-2.0 + (i % 3) * 2.0, 0, (i / 3) * 1.8)
 			a.position = start
 			_wander(a, start)
-			if m.animal_state(h, i, now) == "ready":
-				var mark := Label3D.new()
-				mark.text = "!"
-				mark.font_size = 96
-				mark.modulate = UI.WHEAT
-				mark.outline_size = 14
-				mark.outline_modulate = UI.INK
-				mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-				mark.position = Vector3(0, 2.0 / a.scale.y, 0)
-				a.add_child(mark)
+			var st := m.animal_state(h, i, now)
+			if st != "producing":   # what it wants floats above it: its goods, or a feed bag
+				var want := Sprite3D.new()
+				want.texture = UI.item_tex(GameData.animals()[kind]["products"][0]["item"] if st == "ready" else GameData.animals()[kind]["feed"].keys()[0])
+				want.pixel_size = 0.006 / a.scale.x
+				want.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				want.no_depth_test = true
+				want.position = Vector3(0, 1.9 / a.scale.y, 0)
+				a.add_child(want)
+				var bob := want.create_tween().set_loops()
+				bob.tween_property(want, "position:y", want.position.y + 0.25 / a.scale.y, 0.5).set_trans(Tween.TRANS_SINE)
+				bob.tween_property(want, "position:y", want.position.y, 0.5).set_trans(Tween.TRANS_SINE)
+			var hh: String = h
+			var ii: int = i
+			var an: Node3D = a
+			_add(func(): return _animal_label(hh, ii), start, 1.9, func(): main.tend_animal(hh, ii, an), "heart_hand")
+			_interact[-1]["node"] = a
+		_pen_fence(home)
 
-## Strolls between nearby spots with a waddle (the CC0 models have no animations); hens peck.
+## Walk-up care: collect when ready, feed when hungry, otherwise a pat on the head.
+func _animal_label(h: String, i: int) -> String:
+	var m: GameModel = Game.model
+	var kind: Dictionary = GameData.animals()[m.s["animals"][h][i]["type"]]
+	match m.animal_state(h, i, Game.now()):
+		"ready": return tr("Collect %s") % GameData.item_name(kind["products"][0]["item"])
+		"hungry":
+			var f: String = kind["feed"].keys()[0]
+			return tr("Feed %s · %d %s") % [tr(kind["name"]), int(kind["feed"][f]), GameData.item_name(f)]
+	return tr("Pet the %s") % tr(kind["name"])
+
+## A low fence around each yard, open at the front so you can walk in.
+func _pen_fence(home: Vector3) -> void:
+	var c := home + Vector3(0, 0, 0.9)
+	var half := Vector2(3.6, 2.5)
+	for k in 3:
+		_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(-half.x + 1.2 + k * 2.4, 0, -half.y), 90, false, _dynamic)
+	for sx in [-1, 1]:
+		for k in 2:
+			_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * half.x, 0, -half.y + 1.25 + k * 2.5), 0, false, _dynamic)
+		_place("village/fence_wood_straight.gltf", 2.0, c + Vector3(sx * (half.x - 1.2), 0, half.y), 90, false, _dynamic)
+
 func _wander(a: Node3D, start: Vector3) -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = int(start.x * 100 + start.z)
@@ -710,6 +739,99 @@ func plot_pos(i: int) -> Vector3:
 	var k := i % per
 	return parcel_origin(i / per) + Vector3(PLOT * (0.5 + k % 3), 0, PLOT * (0.5 + k / 3))
 
+# ------------------------------------------------------------------ market stall
+
+## Pre-filled crate models for produce that has one; everything else gets a crate + its icon.
+const CRATES := {"carrot": "crate_carrots", "tomato": "crate_tomatoes", "potato": "crate_potatoes", "lettuce": "crate_lettuce",
+	"onion": "crate_onions", "cheese": "crate_cheese", "bread": "crate_buns", "corn_bread": "crate_buns"}
+const STALL_SLOTS := [-4.4, -2.9, 1.7, 3.2, 4.7]   # metres along the stall front (the merchant stands at 0)
+const SELL_BATCH := 10
+var _stall: Node3D
+
+## The five things you have most of stand in crates at Wren's stall; walk up to sell a batch.
+## A price board shows today's prices and how demand moved.
+func _build_stall() -> void:
+	if _stall: _stall.queue_free()
+	_interact = _interact.filter(func(it): return not it.has("stall"))
+	_stall = Node3D.new()
+	add_child(_stall)
+	var m: GameModel = Game.model
+	var now := Game.now()
+	var yaw := deg_to_rad(MARKET[3])
+	var front: Vector3 = MARKET[2] + Vector3(0, 0, 5.0).rotated(Vector3.UP, yaw)
+	var side := Vector3(1, 0, 0).rotated(Vector3.UP, yaw)
+	var ids := stall_items(m.s["inv"])
+	var board := ["Today at Wren's"]
+	for k in ids.size():
+		var id: String = ids[k]
+		var at: Vector3 = front + side * STALL_SLOTS[k]
+		_place("restaurant/%s.gltf" % CRATES.get(id, "crate"), 0.55, at, MARKET[3], false, _stall)
+		var icon := Sprite3D.new()
+		icon.texture = UI.item_tex(id)
+		icon.pixel_size = 0.006
+		icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		icon.position = at + Vector3(0, 1.15, 0)
+		_stall.add_child(icon)
+		var price := GameModel.market_price(id, now)
+		var tag := Label3D.new()
+		tag.text = "×%d · %d each" % [m.count(id), price]
+		tag.font_size = 48
+		tag.outline_size = 8
+		tag.outline_modulate = UI.INK
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.position = at + Vector3(0, 1.7, 0)
+		_stall.add_child(tag)
+		var pct := int(round((GameModel.demand(id, GameModel.day_of(now)) - 1.0) * 100))
+		board.append("%s %d  %s%d%%" % [GameData.item_name(id), price, "+" if pct >= 0 else "", pct])
+		var iid := id
+		_add(func():
+			var q := mini(Game.model.count(iid), SELL_BATCH)
+			return tr("Sell %d %s · %d") % [q, GameData.item_name(iid), q * GameModel.market_price(iid, Game.now())], at, 1.3, func(): main.sell_crate(iid, at), "coin")
+		_interact[-1]["stall"] = true
+	var post := front + side * -5.2 + Vector3(0, 0, -2.5).rotated(Vector3.UP, yaw)   # beside the stall, clear of the pond
+	var sign := _place("village/fence_wood_straight.gltf", 2.0, post, MARKET[3] + 90, false, _stall)
+	sign.scale.y = 2.4
+	var b := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.4, 1.9, 0.12)
+	b.mesh = bm
+	b.material_override = _mat(Color("#8A5A3B"))
+	b.position = post + Vector3(0, 2.4, 0)
+	b.rotation.y = yaw
+	_stall.add_child(b)
+	var txt := Label3D.new()
+	txt.text = "\n".join(board) if ids.size() > 0 else "Today at Wren's\nBring produce to sell!"
+	txt.font_size = 34
+	txt.pixel_size = 0.0055
+	txt.modulate = UI.CREAM
+	txt.outline_size = 0
+	txt.position = post + Vector3(0, 2.4, 0) + Vector3(0, 0, 0.08).rotated(Vector3.UP, yaw)
+	txt.rotation.y = yaw
+	_stall.add_child(txt)
+
+## What goes in the stall's crates: sellable stock, most first (ties by name), at most five.
+static func stall_items(inv: Dictionary) -> Array:
+	var ids: Array = inv.keys().filter(func(id): return int(inv[id]) > 0 and GameData.item_price(id) > 0 and id != "animal_feed")
+	ids.sort_custom(func(a, b): return int(inv[a]) > int(inv[b]) or int(inv[a]) == int(inv[b]) and a < b)
+	return ids.slice(0, STALL_SLOTS.size())
+
+## "+120" floats up from a world point and fades.
+func pop_text(text: String, at: Vector3, color := UI.WHEAT) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = 64
+	l.outline_size = 14
+	l.modulate = color
+	l.outline_modulate = UI.INK
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	add_child(l)
+	l.global_position = at
+	var tw := l.create_tween()
+	tw.tween_property(l, "position:y", at.y + 1.2, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.4)
+	tw.tween_callback(l.queue_free)
+
 # ------------------------------------------------------------------ crops
 
 func _plot_label(i: int) -> String:
@@ -784,6 +906,30 @@ func harvest_fx(i: int, crop: String) -> void:
 		for k in 3: main.hud.fly(UI.item_tex(crop), screen, "barn")
 		main.hud.fly(UI.icon("xp"), screen, "xp")
 
+## A sprite pops up from `at`; with a HUD `target` it then flies there, else it just fades.
+func pop_icon(tex: Texture2D, at: Vector3, target: String) -> void:
+	var s := Sprite3D.new()
+	s.texture = tex
+	s.pixel_size = 0.008
+	s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	s.no_depth_test = true
+	add_child(s)
+	s.global_position = at
+	var tw := s.create_tween()
+	tw.tween_property(s, "position:y", at.y + 1.3, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(s, "modulate:a", 0.0, 0.3).set_delay(0.5)
+	tw.tween_callback(s.queue_free)
+	var cam := get_viewport().get_camera_3d()
+	if target != "" and cam: main.hud.fly(tex, cam.unproject_position(at + Vector3(0, 1.3, 0)), target)
+
+## A happy squash-and-stretch (fed or petted); scale, so it never fights the wander tween.
+func hop(n: Node3D) -> void:
+	var base := n.scale
+	var tw := n.create_tween()
+	tw.tween_property(n, "scale", base * Vector3(0.85, 1.3, 0.85), 0.1).set_ease(Tween.EASE_OUT)
+	tw.tween_property(n, "scale", base * Vector3(1.15, 0.85, 1.15), 0.1)
+	tw.tween_property(n, "scale", base, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 ## The harvested produce jumps out of the soil, spins, and arcs into the farmer's arms.
 func _pop_produce(at: Vector3, crop: String) -> void:
 	var fam: String = GameData.crops()[crop]["model"]
@@ -820,7 +966,8 @@ func _process(dt: float) -> void:
 		_inside_clock = 0.0
 		interiors.build()
 	for it in (_interact_in if interiors.kind != "" else _interact):
-		var d := Vector2(pp.x - it["pos"].x, pp.z - it["pos"].z).length()
+		var at: Vector3 = it["node"].global_position if it.has("node") and is_instance_valid(it["node"]) else it["pos"]
+		var d := Vector2(pp.x - at.x, pp.z - at.z).length()
 		if d < it["radius"] and d < best_d:
 			best = it
 			best_d = d
@@ -847,8 +994,16 @@ func act() -> void:
 var sweeping := false
 var _last_swept := -1
 
+var _last_tended: Node = null
+
 func _sweep() -> void:
-	if not sweeping or _current.is_empty() or not _current.has("plot"): return
+	if not sweeping or _current.is_empty(): return
+	if _current.has("node"):   # walk through a pen holding the button: tend every animal you pass
+		if _current["node"] != _last_tended:
+			_last_tended = _current["node"]
+			_current["act"].call()
+		return
+	if not _current.has("plot"): return
 	var i: int = _current["plot"]
 	if i == _last_swept: return
 	var p: Dictionary = Game.model.s["plots"][i]

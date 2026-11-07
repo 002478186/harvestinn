@@ -71,7 +71,24 @@ static func row(tex: Texture2D, title: String, sub: String, btn_text: String, on
 
 # ------------------------------------------------------------------ farm
 
+## Seeds pop out in a ring around the plot: unlocked crops plus a teaser of the next one.
 static func seed_picker(main, plot: int) -> void:
+	var m: GameModel = Game.model
+	var items := []
+	var teased := false
+	for cid in GameData.crops():
+		var c: Dictionary = GameData.crops()[cid]
+		var ok := m.is_unlocked(c["unlock_level"])
+		if not ok and teased: continue
+		teased = teased or not ok
+		var cost := int(c["seed_cost"])
+		items.append({"tex": UI.item_tex(cid), "label": tr_(GameData.item_name(cid)),
+			"sub": "%s · %d" % [UI.fmt_time(c["grow_seconds"]), cost] if ok else tr_("Level %d") % int(c["unlock_level"]),
+			"enabled": ok and int(m.s["coins"]) >= cost, "act": func(): main.choose_seed(cid, plot),
+			"why": tr_("Unlocks at level %d") % int(c["unlock_level"]) if not ok else tr_("Seeds cost %d coins") % cost})
+	Radial.open(main.hud, main.world.plot_pos(plot) + Vector3(0, 0.6, 0), items, func(): seed_list(main, plot))
+
+static func seed_list(main, plot: int) -> void:
 	var body: VBoxContainer = main.hud.sheet(tr_("Plant a seed"))
 	var m: GameModel = Game.model
 	for cid in GameData.crops():
@@ -164,16 +181,9 @@ static func settings(main) -> void:
 	var m: GameModel = Game.model
 	var body: VBoxContainer = main.hud.sheet(tr_("Settings"), 0.85)
 	body.add_child(UI.label(tr_("Sound"), 32, UI.RED, 600))
-	var sfx := CheckButton.new()
-	sfx.text = tr_("Sound effects")
-	sfx.button_pressed = Sfx.sfx_on
-	sfx.toggled.connect(func(on): Sfx.set_audio(on, Sfx.music_on))
-	body.add_child(sfx)
-	var mus := CheckButton.new()
-	mus.text = tr_("Music")
-	mus.button_pressed = Sfx.music_on
-	mus.toggled.connect(func(on): Sfx.set_audio(Sfx.sfx_on, on))
-	body.add_child(mus)
+	var on_off := func(on: bool) -> String: return tr_("On") if on else tr_("Off")
+	body.add_child(UI.button(tr_("Sound effects · %s") % on_off.call(Sfx.sfx_on), func(): Sfx.set_audio(not Sfx.sfx_on, Sfx.music_on); settings(main), UI.MEADOW if Sfx.sfx_on else UI.WOOD_DARK))
+	body.add_child(UI.button(tr_("Music · %s") % on_off.call(Sfx.music_on), func(): Sfx.set_audio(Sfx.sfx_on, not Sfx.music_on); settings(main), UI.MEADOW if Sfx.music_on else UI.WOOD_DARK))
 	account_section(main, body)
 	body.add_child(UI.button(tr_("My Farmer"), func(): character_creator(main), UI.MEADOW))
 	body.add_child(UI.button(tr_("Villagers"), func(): cast(main), UI.WOOD_DARK))
@@ -320,6 +330,28 @@ static func workshop(main, bid: String) -> void:
 				var err := m.queue_recipe(bid, rid, Game.now())
 				if err != "": main.say_error(err)
 				else: Sfx.play("craft"); redo.call(), ok and m.has_items(r["inputs"])))
+
+## Recipes in a ring around the station: tap to start one; the centre opens the full workshop.
+static func recipe_radial(main, bid: String, at: Vector3) -> void:
+	var m: GameModel = Game.model
+	var items := []
+	var teased := false
+	for rid in GameData.recipes_for(bid):
+		var r: Dictionary = GameData.recipes()[rid]
+		var ok := m.is_unlocked(r["unlock_level"])
+		if not ok and teased: continue
+		teased = teased or not ok
+		var out_id: String = r["outputs"].keys()[0]
+		var missing: Array = r["inputs"].keys().filter(func(i): return m.count(i) < int(r["inputs"][i]))
+		var why := tr_("Unlocks at level %d") % int(r["unlock_level"]) if not ok else tr_("Need %s") % ", ".join(missing.map(func(i): return "%d %s" % [int(r["inputs"][i]) - m.count(i), tr_(GameData.item_name(i))]))
+		items.append({"tex": UI.item_tex(out_id), "label": tr_(GameData.item_name(out_id)), "sub": UI.fmt_time(r["seconds"]) if ok else tr_("Level %d") % int(r["unlock_level"]),
+			"enabled": ok and missing.is_empty(), "why": why, "act": func():
+				var err := m.queue_recipe(bid, rid, Game.now())
+				if err != "": main.say_error(err)
+				else:
+					Sfx.play("craft")
+					main.hud.toast(tr_("%s is on the way!") % tr_(GameData.item_name(out_id)))})
+	Radial.open(main.hud, at, items, func(): workshop(main, bid))
 
 static func _queue_rows(main, box: VBoxContainer, bid: String, redo: Callable) -> void:
 	var m: GameModel = Game.model
@@ -524,7 +556,7 @@ static func deliveries(main) -> void:
 static func account_section(main, body: VBoxContainer) -> void:
 	body.add_child(UI.label(tr_("Account"), 32, UI.RED, 600))
 	if not Net.configured():
-		body.add_child(UI.label(tr_("Offline build: online features are not set up (see backend/README.md)."), 22, UI.WOOD_DARK))
+		body.add_child(UI.label(tr_("Playing offline. Your farm saves on this phone; online trading arrives in a later update."), 22, UI.WOOD_DARK))
 		return
 	if not Net.online:
 		body.add_child(UI.label(tr_("You're offline. Your farm keeps working; we'll sync when you're back."), 22, UI.WOOD_DARK))

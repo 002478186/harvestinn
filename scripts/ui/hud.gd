@@ -112,6 +112,22 @@ func _build_bottom(safe: Vector2) -> void:
 	action_btn.button_up.connect(func(): nav.emit("sweep_off"))
 	root.add_child(action_btn)
 	_targets["action"] = action_btn
+	seed_btn = UI.button("", func(): nav.emit("seed"), UI.WHEAT)   # swap seeds while standing on a plot
+	seed_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	seed_btn.offset_left = -430
+	seed_btn.offset_right = -310
+	seed_btn.offset_top = -safe.y - 330
+	seed_btn.offset_bottom = -safe.y - 210
+	seed_btn.add_theme_constant_override("icon_max_width", 72)
+	seed_btn.visible = false
+	root.add_child(seed_btn)
+
+var seed_btn: Button
+
+## Shows the current seed on a chip above the action button (only while on a plot).
+func set_seed(crop: String) -> void:
+	seed_btn.visible = crop != ""
+	if crop != "": seed_btn.icon = UI.item_tex(crop)
 
 func set_action(label: String, icon_name: String) -> void:
 	action_btn.visible = label != ""

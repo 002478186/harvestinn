@@ -24,3 +24,9 @@ func test_routes_walk_around_the_fountain() -> bool:
 	truthy(Vector3(r[0]).distance_to(Vector3(0, 0, -5.5)) > 3.0, "detour clears the basin")
 	eq(Villagers.route(Vector3(-8, 0, -3), Vector3(-14, 0, -2.5)).size(), 1, "clear paths go straight")
 	return true
+
+func test_stall_shows_what_you_have_most_of() -> bool:
+	var W := preload("res://scripts/world/world.gd")
+	var ids: Array = W.stall_items({"wheat": 30, "carrot": 5, "egg": 12, "animal_feed": 50, "potato": 0, "tomato": 8, "corn": 8, "flour": 2})
+	eq(ids, ["wheat", "egg", "corn", "tomato", "carrot"], "most first, ties by name, no feed, five max")
+	return true

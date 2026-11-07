@@ -56,6 +56,8 @@ func _ready() -> void:
 		if a.begins_with("--screen="):
 			var v := a.substr(9)
 			if v.begins_with("b:"): Screens.open_building(self, v.substr(2))
+			elif v == "seeds": Screens.seed_picker.call_deferred(self, 0)
+			elif v.begins_with("r:"): Screens.recipe_radial.call_deferred(self, v.substr(2), world.interiors.ORIGIN + Vector3(0, 1.2, -4.0))
 			else: Screens.open(self, v)
 	if "--fresh" in OS.get_cmdline_user_args():   # dev: a brand-new player who already made a farmer
 		Game.set_model(GameModel.new_game(Game.now()))
@@ -82,6 +84,7 @@ func _process(_dt: float) -> void:
 	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
 	hud.action_btn.visible = hud.action_btn.visible and not player.frozen and hud.action_btn.text != ""
+	hud.set_seed(seed if hud.action_btn.visible and world._current.has("plot") and Game.model.s["plots"][world._current["plot"]]["crop"] == "" else "")
 
 func _dress_player() -> void:
 	var a: Dictionary = Game.model.s["avatar"]
@@ -111,10 +114,12 @@ func _on_nav(screen: String) -> void:
 	if screen == "action":
 		world.act()
 		world._last_swept = world._current.get("plot", -1)
+	elif screen == "seed" and world._current.has("plot"): Screens.seed_picker(self, world._current["plot"])
 	elif screen == "sweep_on": world.sweeping = true
 	elif screen == "sweep_off":
 		world.sweeping = false
 		world._last_swept = -1
+		world._last_tended = null
 	else: Screens.open(self, screen)
 
 # ------------------------------------------------------------------ farming verbs
@@ -155,6 +160,56 @@ func plot_action(i: int) -> void:
 		player.do_action("PickUp", world.plot_pos(i))
 	else:
 		Screens.growing_plot(self, i)
+
+## Pens: collect, feed or pet whichever animal you walked up to, with a pop for each.
+func tend_animal(h: String, i: int, node: Node3D) -> void:
+	var m: GameModel = Game.model
+	var now := Game.now()
+	var kind: Dictionary = GameData.animals()[m.s["animals"][h][i]["type"]]
+	var at := node.global_position
+	match m.animal_state(h, i, now):
+		"ready":
+			var got := m.animal_products(h, i, now)
+			var err := m.collect_animal(h, i, now)
+			if err != "":
+				say_error(err)
+				return
+			Sfx.play("collect")
+			player.do_action("PickUp", at)
+			for item in got: world.pop_icon(UI.item_tex(item), at + Vector3(0, 1, 0), "barn")
+			world.pop_icon(UI.icon("xp"), at + Vector3(0, 1, 0), "xp")
+		"hungry":
+			var err := m.feed_animal(h, i, now)
+			if err != "":
+				say_error(err)
+				return
+			Sfx.play("plant")
+			player.do_action("Interact", at)
+			world.hop(node)
+		_:
+			if m.pet_animal(h, i, now) != "":
+				hud.toast(tr("The %s is already happy!") % tr(kind["name"]))
+				return
+			Sfx.play("pet")
+			player.do_action("Interact", at)
+			world.hop(node)
+			world.pop_icon(UI.icon("heart_hand"), at + Vector3(0, 1.2, 0), "")
+
+## Market stall: sell a batch from the crate you walked up to; coins pop out of the crate.
+func sell_crate(id: String, at: Vector3) -> void:
+	var m: GameModel = Game.model
+	var qty := mini(m.count(id), world.SELL_BATCH)
+	var coins := qty * GameModel.market_price(id, Game.now())
+	var err := m.sell(id, qty, Game.now())
+	if err != "":
+		say_error(err)
+		return
+	Sfx.play("coins")
+	player.do_action("Interact", at)
+	world.npc("merchant").play("Cheer")
+	world.pop_text("+%d" % coins, at + Vector3(0, 1.4, 0))
+	var cam := get_viewport().get_camera_3d()
+	for k in 4: hud.fly(UI.icon("coin"), cam.unproject_position(at + Vector3(0, 1.4, 0)), "coins")
 
 func choose_seed(crop: String, plot: int) -> void:
 	seed = crop

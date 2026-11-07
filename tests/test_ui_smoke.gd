@@ -57,3 +57,28 @@ func test_3d_core_loop_through_the_game_scene() -> bool:
 	main.queue_free()
 	await tree.process_frame
 	return true
+
+func test_walk_up_care_and_stall_selling() -> bool:
+	var game: Node = tree.root.get_node("Game")
+	game.set_model(load("res://scripts/main.gd").demo_farm(game.now()))
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	tree.root.add_child(main)
+	await tree.process_frame
+	var m: GameModel = game.model
+	var h := "coop"
+	var hungry := 0
+	m.s["animals"][h][hungry]["cycle_end"] = 0.0
+	main.tend_animal(h, hungry, main.world)
+	eq(m.animal_state(h, hungry, game.now()), "producing", "walk-up feeds the hen")
+	m.s["animals"][h][hungry]["cycle_end"] = 1.0
+	var eggs := m.count("egg")
+	main.tend_animal(h, hungry, main.world)
+	truthy(m.count("egg") > eggs, "walk-up collects eggs")
+	var wheat := m.count("wheat")
+	var coins: int = m.s["coins"]
+	main.sell_crate("wheat", Vector3.ZERO)
+	eq(m.count("wheat"), wheat - 10, "a crate sells a batch of ten")
+	truthy(m.s["coins"] > coins, "coins paid")
+	main.queue_free()
+	await tree.process_frame
+	return true

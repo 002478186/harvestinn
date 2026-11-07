@@ -6,7 +6,7 @@ shot() { timeout 90 godot --path . -- --shot="$OUT/$1.png" --demo --clean "${@:2
 shot 1_farm_day   --hour=11 --at=0,2,0             &   # village square, looking at the inn
 shot 2_farm_night --hour=22 --at=0,2,0             &
 shot 3_fields     --hour=16 --at=-2,4,180          &   # standing at the fields, looking south
-shot 4_market     --hour=11 --at=-12,0,-60         &   # market stall + merchant
+shot 4_market     --hour=11 --at=-9,3.5,40,10       &   # Wren's stall: produce crates + price board
 wait
 shot 5_pens       --hour=11 --at=13,28,-80,9       &   # hens, cows and the barns
 shot 6_inn        --hour=19 --inside=inn           &

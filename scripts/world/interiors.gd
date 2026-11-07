@@ -181,7 +181,7 @@ func _inn() -> void:
 				Sfx.play("collect")
 				w.main.player.do_action("PickUp", ORIGIN + Vector3(-3.1, 0, -7))
 			else:
-				Screens.workshop(w.main, "kitchen"), "inn")
+				Screens.recipe_radial(w.main, "kitchen", ORIGIN + Vector3(-3.1, 1.2, -6.5)), "inn")
 	# dining tables with seated guests
 	var guests: Array = m.inn()["guests"]
 	for t in int(tier["tables"]):
@@ -335,20 +335,7 @@ func _eat(who: Character3D) -> void:
 ## "+N" coin label that floats up, coins jingle and fly to the HUD counter.
 func _pay(at: Vector3, coins: int) -> void:
 	Sfx.play("coins")
-	var l := Label3D.new()
-	l.text = "+%d" % coins
-	l.font_size = 64
-	l.outline_size = 14
-	l.modulate = UI.WHEAT
-	l.outline_modulate = UI.INK
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	life.add_child(l)
-	l.global_position = at
-	var tw := l.create_tween()
-	tw.tween_property(l, "position:y", l.position.y + 1.2, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.9).set_delay(0.4)
-	tw.tween_callback(l.queue_free)
+	w.pop_text("+%d" % coins, at)
 	var cam := get_viewport().get_camera_3d()
 	if cam == null: return
 	var screen := cam.unproject_position(at)
@@ -381,7 +368,7 @@ func _workshop(id: String) -> void:
 	if q.size() > ready.size():
 		var j: Dictionary = q[ready.size()]
 		_sign(tr("Making %s · %s") % [GameData.item_name(GameData.recipes()[j["recipe"]]["outputs"].keys()[0]), UI.fmt_time(float(j["end"]) - now)], Vector3(0, 1.9, -3.0), 30)
-	_add(tr("Work at the %s") % b["name"], ORIGIN + Vector3(0, 0, -2.4), 2.0, func(): Screens.workshop(w.main, id), "shop")
+	_add(tr("Work at the %s") % b["name"], ORIGIN + Vector3(0, 0, -2.4), 2.0, func(): Screens.recipe_radial(w.main, id, ORIGIN + Vector3(0, 1.2, -4.0)), "shop")
 	# finished goods wait in crates on the right
 	_put("furniture/shelf_A_big.gltf", 1.0, Vector3(3.9, 0, -1.0), -90, true)
 	for k in ready.size():
