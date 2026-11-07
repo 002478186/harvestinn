@@ -21,7 +21,7 @@ sed -i '' -e "s/^application\/app_store_team_id=.*/application\/app_store_team_i
 rm -rf "$OUT" && mkdir -p "$OUT"
 godot --headless --path . --export-debug "iOS" "$OUT/HarvestInn.xcodeproj"
 
-DEVICE=$(xcrun devicectl list devices 2>/dev/null | awk '/connected/ && /physical/ {for(i=1;i<=NF;i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) print $i}' | head -1)
+DEVICE=$(xcrun devicectl list devices 2>/dev/null | awk '(/connected/ || /available/) && /physical/ {for(i=1;i<=NF;i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) print $i}' | head -1)
 [ -n "$DEVICE" ] || { echo "No connected iPhone found (plug it in, unlock it, trust this Mac)."; exit 1; }
 
 xcodebuild -project "$OUT/HarvestInn.xcodeproj" -scheme HarvestInn -configuration Debug \
