@@ -1,5 +1,5 @@
-## Third-person camera: smooth (frame-rate independent) follow, drag to orbit, pinch/wheel to zoom.
-## Touches on the left 45% of the screen belong to the joystick and are ignored here.
+## Top-view camera: smooth (frame-rate independent) follow; zoom and orbit come from the joystick's
+## two-finger gestures (touch) or the mouse wheel and right-drag (desktop).
 extends Node3D
 
 @export var follow_rate := 7.0
@@ -19,8 +19,6 @@ var anchor := Vector3.ZERO          # inside a room: framing leans toward the ro
 var anchor_weight := 0.0     # shift the framing (e.g. the character creator puts you in the top half)
 var trauma := 0.0             # camera punch: 0..1, decays; moves only the camera, never the player
 var _shake_t := 0.0
-var _touches := {}
-var _pinch := 0.0
 
 func _ready() -> void:
 	cam.fov = 46.0
@@ -61,25 +59,18 @@ func top_view() -> void:
 func punch(amount: float) -> void:
 	trauma = clampf(trauma + amount, 0.0, 1.0)
 
-func _unhandled_input(e: InputEvent) -> void:
-	var w := get_viewport().get_visible_rect().size.x
-	if e is InputEventScreenTouch:
-		if e.pressed and e.position.x > w * 0.45: _touches[e.index] = e.position
-		else: _touches.erase(e.index)
-		_pinch = _spread()
-	elif e is InputEventScreenDrag and _touches.has(e.index):
-		_touches[e.index] = e.position
-		if _touches.size() >= 2:
-			var s := _spread()
-			if _pinch > 0.0: dist = clampf(dist * _pinch / maxf(s, 1.0), 10.0, 26.0)
-			_pinch = s
-		else:
-			yaw -= e.relative.x * 0.008
-			pitch = clampf(pitch - e.relative.y * 0.004, deg_to_rad(PITCH_RANGE.x), deg_to_rad(PITCH_RANGE.y))
-	elif e is InputEventMouseButton and e.pressed:
-		if e.button_index == MOUSE_BUTTON_WHEEL_UP: dist = maxf(10.0, dist * 0.9)
-		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: dist = minf(26.0, dist * 1.1)
+## Two-finger gestures come from the joystick (it owns the whole screen).
+func zoom(factor: float) -> void:
+	dist = clampf(dist * factor, 10.0, 26.0)
 
-func _spread() -> float:
-	var p := _touches.values()
-	return (p[0] - p[1]).length() if p.size() >= 2 else 0.0
+func orbit(d_yaw: float, d_pitch: float) -> void:
+	yaw -= d_yaw
+	pitch = clampf(pitch + d_pitch, deg_to_rad(PITCH_RANGE.x), deg_to_rad(PITCH_RANGE.y))
+
+## Desktop: wheel zooms, right-drag orbits.
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed:
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP: zoom(0.9)
+		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom(1.1)
+	elif e is InputEventMouseMotion and e.button_mask & MOUSE_BUTTON_MASK_RIGHT:
+		orbit(e.relative.x * 0.008, -e.relative.y * 0.004)

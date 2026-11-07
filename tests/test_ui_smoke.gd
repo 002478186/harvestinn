@@ -82,3 +82,33 @@ func test_walk_up_care_and_stall_selling() -> bool:
 	main.queue_free()
 	await tree.process_frame
 	return true
+
+func test_select_plots_and_plant_a_mix() -> bool:
+	var game: Node = tree.root.get_node("Game")
+	game.set_model(GameModel.new_game(game.now()))
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	tree.root.add_child(main)
+	await tree.process_frame
+	main.hud.close_sheet()
+	var m: GameModel = game.model
+	m.s["coins"] = 500
+	main.buy_field()
+	await tree.process_frame
+	for i in [0, 1, 2]: main.world.toggle_select(i)
+	eq(main.world.selected.size(), 3, "three plots selected")
+	truthy(main.hud.sel_bar != null, "selection bar shows")
+	main.choose_seed("wheat", 0)
+	eq([0, 1, 2].map(func(i): return m.s["plots"][i]["crop"]), ["wheat", "wheat", "wheat"], "all three planted with wheat")
+	eq(main.world.selected.size(), 0, "selection cleared")
+	main.world.select_all_empty()
+	eq(main.world.selected, [3, 4, 5], "all empty picks the rest")
+	main.choose_seed("carrot", 3)
+	eq(m.s["plots"][5]["crop"], "carrot", "the rest get carrots: a mixed field")
+	main.world.toggle_select(0)
+	main.world.toggle_select(0)
+	eq(main.world.selected.size(), 0, "tapping again deselects")
+	main.rig.zoom(2.0)
+	eq(main.rig.dist, 26.0, "pinch zoom is clamped")
+	main.queue_free()
+	await tree.process_frame
+	return true

@@ -35,6 +35,11 @@ func _ready() -> void:
 	tut.hud = hud
 	hud.root.add_child(tut)
 	world.action_changed.connect(hud.set_action)
+	hud.joystick.rig = rig
+	hud.joystick.tapped.connect(_on_tap)
+	world.selection_changed.connect(func(sel: Array[int]):
+		var ripe := sel.filter(func(i): return Game.model.s["plots"][i]["crop"] != "" and Game.model.plot_remaining(i, Game.now()) <= 0.0).size()
+		hud.show_selection(sel.size(), ripe))
 	hud.nav.connect(_on_nav)
 	Game.event.connect(_on_event)
 	Net.cloud_conflict.connect(func(server): Screens.cloud_conflict(self, server))
@@ -48,6 +53,11 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():   # dev: -- --inside=inn / mill / storehouse
 		if a.begins_with("--inside="):
 			world.interiors.enter(a.substr(9), Vector3(0, 0, -9))
+	for a in OS.get_cmdline_user_args():   # dev: -- --select=0,1,2 selects plots (selection bar check)
+		if a.begins_with("--select="):
+			for i in a.substr(9).split(","): world.toggle_select.call_deferred(int(i))
+	if "--levelup" in OS.get_cmdline_user_args():   # dev: level up after 1 s (popup check)
+		get_tree().create_timer(1.0).timeout.connect(func(): Game.model.add_xp(GameModel.xp_to_next(int(Game.model.s["level"]))))
 	if "--harvest" in OS.get_cmdline_user_args():   # dev: harvest plot 0 after 1 s (juice check)
 		get_tree().create_timer(1.0).timeout.connect(func():
 			for id in Game.model.s["inv"].keys(): if GameData.storage_kind(id) == "silo": Game.model.s["inv"].erase(id)
@@ -93,6 +103,7 @@ func _process(_dt: float) -> void:
 	player.stick = hud.joystick.value
 	player.frozen = hud.sheet_open() or hud._popup_open
 	hud.joystick.visible = not player.frozen
+	if hud.sel_bar: hud.sel_bar.visible = not player.frozen
 	Sfx.set_night(world.day.is_night())
 	if not hud.sheet_open() and world.interiors.kind == "" and rig.pitch > deg_to_rad(rig.PITCH_RANGE.y) + 0.01:
 		rig.top_view()   # e.g. the creator closed with ✕: back to the top view
@@ -147,6 +158,10 @@ func _on_nav(screen: String) -> void:
 		world.act()
 		world._last_swept = world._current.get("plot", -1)
 	elif screen == "seed" and world._current.has("plot"): Screens.seed_picker(self, world._current["plot"])
+	elif screen == "sel_plant": Screens.seed_picker(self, world.selected[0])
+	elif screen == "sel_all": world.select_all_empty()
+	elif screen == "sel_clear": world.clear_selection()
+	elif screen == "sel_harvest": harvest_selected()
 	elif screen == "sweep_on": world.sweeping = true
 	elif screen == "sweep_off":
 		world.sweeping = false
@@ -247,7 +262,44 @@ func sell_crate(id: String, at: Vector3) -> void:
 func choose_seed(crop: String, plot: int) -> void:
 	seed = crop
 	hud.close_sheet()
-	plot_action(plot)
+	if world.selected.is_empty():
+		plot_action(plot)
+		return
+	var planted := 0   # plant every selected empty plot with this seed, then clear the selection
+	for i in world.selected:
+		if Game.model.s["plots"][i]["crop"] != "": continue
+		var err := Game.model.plant(i, crop, Game.now())
+		if err == "no_coins":
+			hud.toast(tr("Out of coins after %d plots") % planted)
+			break
+		if err == "": planted += 1
+	if planted > 0:
+		Sfx.play("plant")
+		player.do_action("Use_Item", world.plot_pos(world.selected[0]))
+	world.clear_selection()
+
+## Harvest every ripe plot in the selection.
+func harvest_selected() -> void:
+	var n := 0
+	for i in world.selected:
+		if Game.model.s["plots"][i]["crop"] != "" and Game.model.plot_remaining(i, Game.now()) <= 0.0:
+			var err := Game.model.harvest(i, Game.now())
+			if err != "":
+				say_error(err)
+				break
+			n += 1
+	if n > 0:
+		Sfx.play("harvest")
+		player.do_action("PickUp", world.plot_pos(world.selected[0]))
+	world.clear_selection()
+
+## A quick tap on the world: tapping a plot adds it to (or removes it from) the selection.
+func _on_tap(pos: Vector2) -> void:
+	var i: int = world.plot_at_screen(pos)
+	if i < 0: return
+	world.toggle_select(i)
+	Sfx.play("pop")
+	Sfx.buzz("light")
 
 func build_here(id: String) -> void:
 	var err := Game.model.build(id)

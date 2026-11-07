@@ -133,6 +133,35 @@ func _build_bottom(safe: Vector2) -> void:
 
 var seed_btn: Button
 
+## Shown while plots are selected: plant them all, harvest the ripe ones, select all empty, clear.
+var sel_bar: PanelContainer
+
+func show_selection(count: int, ripe: int) -> void:
+	if sel_bar: sel_bar.queue_free()
+	sel_bar = null
+	if count == 0: return
+	sel_bar = PanelContainer.new()
+	sel_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	sel_bar.offset_left = 16
+	sel_bar.offset_right = -16
+	sel_bar.offset_top = -_safe_margins().y - 380
+	sel_bar.offset_bottom = -_safe_margins().y - 230
+	var v := VBoxContainer.new()
+	sel_bar.add_child(v)
+	var l := UI.label(tr("%d plots selected") % count, 24, UI.RED, 600, false)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var h := HBoxContainer.new()
+	v.add_child(h)
+	var btns := [[tr("Plant"), "sel_plant", UI.MEADOW], [tr("All empty"), "sel_all", UI.WOOD_DARK], ["✕", "sel_clear", UI.WOOD_DARK]]
+	if ripe > 0: btns.insert(1, [tr("Harvest %d") % ripe, "sel_harvest", UI.WHEAT])
+	for b in btns:
+		var bt := UI.button(b[0], func(): nav.emit(b[1]), b[2])
+		bt.add_theme_font_size_override("font_size", 24)
+		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL if b[1] != "sel_clear" else Control.SIZE_FILL
+		h.add_child(bt)
+	root.add_child(sel_bar)
+
 ## Shows the current seed on a chip above the action button (only while on a plot).
 func set_seed(crop: String) -> void:
 	seed_btn.visible = crop != ""
@@ -411,7 +440,8 @@ func _level_up_popup(d: Dictionary) -> void:
 			var t: Texture2D = UI.item_tex(u["id"]) if u["kind"] in ["crop", "recipe"] else UI.tex("res://assets/art/buildings/%s.svg" % u["id"])
 			if u["kind"] == "animal": t = UI.tex("res://assets/art/animals/%s.svg" % u["id"])
 			h.add_child(UI.icon_rect(t if t else UI.icon("gift"), 48))
-			h.add_child(UI.label(tr(u["name"]), 24))
+			h.custom_minimum_size.x = 270
+			h.add_child(UI.label(tr(u["name"]), 24, UI.INK, 700, false))   # no wrap: a wrapping label in a box shrinks to one letter per line
 			g.add_child(h)
 		v.add_child(g)
 	v.add_child(UI.button(tr("Hooray!"), func(): close_popup(v), UI.MEADOW))

@@ -594,6 +594,7 @@ func rebuild() -> void:
 		_add(func(): return _plot_label(idx), n.position, PLOT * 0.75, func(): main.plot_action(idx), "farm")
 		_interact[-1]["plot"] = idx
 		_refresh_plot(i)
+	_mark_selection.call_deferred()   # keep the selection across rebuilds
 	var next := m.next_parcel()
 	if not next.is_empty():
 		_parcel(int(m.s["parcels"]), false)
@@ -801,6 +802,63 @@ func plot_pos(i: int) -> Vector3:
 	var per := GameModel.plots_per_parcel()
 	var k := i % per
 	return parcel_origin(i / per) + Vector3(PLOT * (0.5 + k % 3), 0, PLOT * (0.5 + k / 3))
+
+# ------------------------------------------------------------------ plot selection
+
+## Tap plots to select several, then plant or harvest them all at once (mix crops by
+## planting one selection, then another). Selected plots get a golden frame.
+var selected: Array[int] = []
+signal selection_changed(selected: Array[int])
+
+## The plot under a screen point (ray onto the ground), or -1.
+func plot_at_screen(pos: Vector2) -> int:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or interiors.kind != "": return -1
+	var o := cam.project_ray_origin(pos)
+	var n := cam.project_ray_normal(pos)
+	if n.y >= -0.01: return -1
+	var hit := o + n * (-o.y / n.y)
+	for i in _plots.size():
+		var p := _plots[i].position
+		if absf(hit.x - p.x) < PLOT / 2.0 and absf(hit.z - p.z) < PLOT / 2.0: return i
+	return -1
+
+func toggle_select(i: int) -> void:
+	if i in selected: selected.erase(i)
+	else: selected.append(i)
+	_mark_selection()
+
+func select_all_empty() -> void:
+	selected.clear()
+	for i in Game.model.s["plots"].size():
+		if Game.model.s["plots"][i]["crop"] == "": selected.append(i)
+	_mark_selection()
+
+func clear_selection() -> void:
+	selected.clear()
+	_mark_selection()
+
+func _mark_selection() -> void:
+	selected = selected.filter(func(i): return i < _plots.size())
+	for i in _plots.size():
+		var old := _plots[i].get_node_or_null("Sel")
+		if i in selected and old == null:
+			var f := MeshInstance3D.new()
+			f.name = "Sel"
+			var bm := BoxMesh.new()
+			bm.size = Vector3(PLOT - 0.05, 0.16, PLOT - 0.05)   # peeks out around the soil as a frame
+			f.mesh = bm
+			f.position.y = 0.03
+			var m := StandardMaterial3D.new()
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.albedo_color = Color("#FFD54A")
+			f.material_override = m
+			_plots[i].add_child(f)
+			f.scale = Vector3(0.8, 1, 0.8)
+			f.create_tween().tween_property(f, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		elif not i in selected and old:
+			old.queue_free()
+	selection_changed.emit(selected)
 
 # ------------------------------------------------------------------ next-thing beacon
 
